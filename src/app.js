@@ -6,6 +6,7 @@ const userRoutes = require('./routes/userRoutes');
 const alunoRoutes = require('./routes/alunoRoutes');
 const professorRoutes = require('./routes/professorRoutes');
 const postRoutes = require('./routes/postRoutes');
+const comentarioRoutes = require('./routes/comentarioRoutes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/users', userRoutes);
 app.use('/alunos', alunoRoutes);
 app.use('/professores', professorRoutes);
 app.use('/posts', postRoutes);
+app.use('/comentarios', comentarioRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ mensagem: 'Rota não encontrada.' });

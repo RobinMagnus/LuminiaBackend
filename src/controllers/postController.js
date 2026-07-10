@@ -1,4 +1,5 @@
 const Post = require('../models/Post');
+const Comentario = require('../models/Comentario');
 
 function filtroVisibilidade(role) {
   if (role === 'professor') {
@@ -80,6 +81,8 @@ async function removerPost(req, res) {
     if (!post) {
       return res.status(404).json({ mensagem: 'Post não encontrado.' });
     }
+
+    await Comentario.deleteMany({ postId: post._id });
 
     return res.json({ mensagem: 'Post removido com sucesso.' });
   } catch (error) {

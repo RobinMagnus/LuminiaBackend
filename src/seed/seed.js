@@ -6,12 +6,14 @@ const User = require('../models/User');
 const Aluno = require('../models/Aluno');
 const Professor = require('../models/Professor');
 const Post = require('../models/Post');
+const Comentario = require('../models/Comentario');
 
 async function seed() {
   try {
     await connectDatabase();
 
     await Promise.all([
+      Comentario.deleteMany({}),
       Post.deleteMany({}),
       Aluno.deleteMany({}),
       Professor.deleteMany({}),
@@ -56,7 +58,7 @@ async function seed() {
       ]
     });
 
-    await Post.create([
+    const posts = await Post.create([
       {
         titulo: 'Boas-vindas ao Luminia',
         conteudo: 'Este espaço reúne conteúdos de apoio para alunos e professores.',
@@ -72,6 +74,19 @@ async function seed() {
         autor: professorUser._id,
         tags: ['matematica', 'atividade'],
         visivelPara: 'alunos'
+      }
+    ]);
+
+    await Comentario.create([
+      {
+        postId: posts[0]._id,
+        autorId: alunoUser._id,
+        conteudo: 'Gostei do espaço de apoio. Vou acompanhar os conteúdos por aqui.'
+      },
+      {
+        postId: posts[0]._id,
+        autorId: professorUser._id,
+        conteudo: 'Bem-vindos! Usem os comentários para registrar dúvidas sobre os materiais.'
       }
     ]);
 

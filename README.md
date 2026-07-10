@@ -29,8 +29,7 @@ Scripts reais definidos no `package.json`:
 | `npm start` | Inicia a API com `node src/server.js`. |
 | `npm run dev` | Inicia a API com `nodemon src/server.js`. |
 | `npm run seed` | Limpa e recria dados iniciais no MongoDB. |
-
-Não há script de testes automatizados configurado atualmente.
+| `npm test` | Executa testes com Jest, Supertest e MongoDB Memory Server. |
 
 ## Instalação
 
@@ -146,6 +145,7 @@ O seed também cria:
 - um perfil de professor vinculado ao usuário professor;
 - um perfil de aluno vinculado ao usuário aluno;
 - dois posts de exemplo.
+- dois comentários de exemplo, um criado pelo aluno e outro pelo professor.
 
 ## Autenticação JWT
 
@@ -184,11 +184,11 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
-| `GET` | `/alunos` | JWT | Lista perfis de alunos. |
-| `GET` | `/alunos/:id` | JWT | Busca aluno por ID. |
-| `POST` | `/alunos` | JWT | Cria perfil de aluno. |
-| `PUT` | `/alunos/:id` | JWT | Atualiza perfil de aluno. |
-| `DELETE` | `/alunos/:id` | JWT | Remove perfil de aluno. |
+| `GET` | `/alunos` | JWT + professor | Lista perfis de alunos. |
+| `GET` | `/alunos/:id` | JWT | Professor acessa qualquer perfil; aluno acessa somente o próprio. |
+| `POST` | `/alunos` | JWT + professor | Cria perfil de aluno. |
+| `PUT` | `/alunos/:id` | JWT | Professor atualiza qualquer perfil; aluno atualiza somente `nome` e `dataNascimento` do próprio perfil. |
+| `DELETE` | `/alunos/:id` | JWT + professor | Remove perfil de aluno. |
 
 ### Professores
 
@@ -196,9 +196,9 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | --- | --- | --- | --- |
 | `GET` | `/professores` | JWT | Lista perfis de professores. |
 | `GET` | `/professores/:id` | JWT | Busca professor por ID. |
-| `POST` | `/professores` | JWT | Cria perfil de professor. |
-| `PUT` | `/professores/:id` | JWT | Atualiza perfil de professor. |
-| `DELETE` | `/professores/:id` | JWT | Remove perfil de professor. |
+| `POST` | `/professores` | JWT + professor | Cria perfil de professor. |
+| `PUT` | `/professores/:id` | JWT + professor próprio | Atualiza somente o próprio perfil de professor. |
+| `DELETE` | `/professores/:id` | JWT + professor próprio | Remove somente o próprio perfil de professor. |
 
 ### Posts
 
@@ -217,6 +217,38 @@ Visibilidade de posts:
 - `todos`: visível para alunos e professores;
 - `alunos`: visível apenas para alunos;
 - `professores`: visível apenas para professores.
+
+### Comentários
+
+Todas as rotas de comentários exigem JWT.
+
+| Método | Rota | Aluno | Professor |
+| --- | --- | ---: | ---: |
+| `GET` | `/posts/:postId/comentarios` | Sim | Sim |
+| `POST` | `/posts/:postId/comentarios` | Sim | Sim |
+| `PUT` | `/comentarios/:id` | Próprio | Próprio |
+| `DELETE` | `/comentarios/:id` | Próprio | Próprio ou comentários em seu post |
+
+Modelo público de comentário:
+
+```json
+{
+  "_id": "comentarioId",
+  "postId": "postId",
+  "conteudo": "Comentário do usuário",
+  "autor": {
+    "_id": "userId",
+    "nome": "Nome do usuário",
+    "role": "aluno"
+  },
+  "criadoEm": "2026-07-09T20:00:00.000Z",
+  "atualizadoEm": "2026-07-09T20:00:00.000Z",
+  "podeEditar": true,
+  "podeExcluir": true
+}
+```
+
+`podeEditar` e `podeExcluir` são calculados pelo backend. O frontend não precisa reproduzir regras de propriedade.
 
 ## Exemplos de requests
 
@@ -273,6 +305,61 @@ curl -X POST http://localhost:3000/posts \
   }'
 ```
 
+### Criar comentário
+
+```bash
+curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN_JWT" \
+  -d '{ "conteudo": "Minha dúvida sobre este conteúdo." }'
+```
+
+Resposta `201`:
+
+```json
+{
+  "mensagem": "Comentário criado com sucesso.",
+  "dados": {
+    "_id": "comentarioId",
+    "postId": "postId",
+    "conteudo": "Minha dúvida sobre este conteúdo.",
+    "autor": {
+      "_id": "userId",
+      "nome": "Nome do usuário",
+      "role": "aluno"
+    },
+    "criadoEm": "2026-07-09T20:00:00.000Z",
+    "atualizadoEm": "2026-07-09T20:00:00.000Z",
+    "podeEditar": true,
+    "podeExcluir": true
+  }
+}
+```
+
+### Atualizar comentário
+
+```bash
+curl -X PUT http://localhost:3000/comentarios/COMENTARIO_ID \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN_JWT" \
+  -d '{ "conteudo": "Comentário atualizado." }'
+```
+
+### Excluir comentário
+
+```bash
+curl -X DELETE http://localhost:3000/comentarios/COMENTARIO_ID \
+  -H "Authorization: Bearer TOKEN_JWT"
+```
+
+## Testes
+
+```bash
+npm test
+```
+
+A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Ela cobre os principais cenários de comentários: autenticação, criação, listagem, edição, exclusão, permissões e remoção de comentários quando um post é excluído.
+
 ## Estrutura de pastas
 
 ```txt
@@ -286,6 +373,7 @@ curl -X POST http://localhost:3000/posts \
 │   ├── controllers/
 │   │   ├── alunoController.js
 │   │   ├── authController.js
+│   │   ├── comentarioController.js
 │   │   ├── postController.js
 │   │   ├── professorController.js
 │   │   └── userController.js
@@ -294,12 +382,14 @@ curl -X POST http://localhost:3000/posts \
 │   │   └── roleMiddleware.js
 │   ├── models/
 │   │   ├── Aluno.js
+│   │   ├── Comentario.js
 │   │   ├── Post.js
 │   │   ├── Professor.js
 │   │   └── User.js
 │   ├── routes/
 │   │   ├── alunoRoutes.js
 │   │   ├── authRoutes.js
+│   │   ├── comentarioRoutes.js
 │   │   ├── postRoutes.js
 │   │   ├── professorRoutes.js
 │   │   └── userRoutes.js
@@ -308,6 +398,8 @@ curl -X POST http://localhost:3000/posts \
 │   ├── app.js
 │   └── server.js
 ├── docker-compose.yml
+├── docs/
+│   └── API_CONTRACT.md
 ├── package.json
 ├── package-lock.json
 └── README.md
@@ -318,6 +410,7 @@ curl -X POST http://localhost:3000/posts \
 - O backend já fornece autenticação real via `POST /auth/login` e sessão via `GET /auth/me`.
 - O frontend consome `POST /auth/login`, salva o token JWT no `localStorage`, usa `GET /auth/me` para restaurar sessão e envia `Authorization: Bearer TOKEN` nas chamadas protegidas.
 - O frontend também tenta consumir `GET /posts` e `GET /posts/:id` para telas de conteúdos.
+- O frontend consome comentários reais com `GET /posts/:postId/comentarios`, `POST /posts/:postId/comentarios`, `PUT /comentarios/:id` e `DELETE /comentarios/:id`.
 - O CORS está configurável por `CORS_ORIGIN` e, por padrão, permite `http://localhost:5173` e `http://localhost:5174`.
 - O CI do backend usa GitHub Actions com MongoDB em service container, executa `npm ci`, `npm run seed`, sobe a API e valida `http://localhost:3000`.
 
@@ -329,34 +422,37 @@ Implementado:
 - Conexão com MongoDB via Mongoose.
 - Autenticação JWT com senha criptografada por bcrypt.
 - Models de `User`, `Aluno`, `Professor` e `Post`.
+- Model de `Comentario` relacionado a `Post` e `User`.
 - Seed com usuários de teste, perfis e posts.
+- Seed com comentários de aluno e professor.
 - CRUD básico para alunos, professores e posts.
+- Rotas de comentários com autorização por propriedade.
 - Filtro de visibilidade para posts conforme role do usuário.
+- Autorização refinada por role e propriedade nas rotas de alunos e professores.
 - CORS configurável.
 - Workflow de CI para backend.
 
 Ainda não implementado:
 
-- Testes automatizados.
 - Modelos reais de atividades, entregas, correções, presença, boletim detalhado, cronograma ou feedback de IA.
 - Integração com provedores de IA.
-- Regras refinadas de autorização para todas as rotas de alunos e professores.
 - Paginação, filtros avançados e validação centralizada de entrada.
 
 ## Limitações conhecidas
 
-- As rotas de `alunos` e `professores` exigem JWT, mas ainda não restringem ações por role.
+- As rotas de `alunos` e `professores` já possuem regras por role/propriedade, mas ainda não têm testes automatizados cobrindo todos os cenários de autorização.
 - `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
 - O seed apaga dados existentes antes de recriar os dados iniciais.
 - Não há camada de testes automatizados ou cobertura de regressão.
+- Comentários não possuem paginação; a listagem retorna todos os comentários do post em ordem cronológica.
 - Não existem endpoints específicos para atividades, envio de respostas, correções, presença, boletim completo ou cronograma.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
 ## Próximos passos
 
-- Adicionar testes automatizados para autenticação, autorização e rotas principais.
+- Expandir testes automatizados para autenticação, autorização e demais rotas principais.
 - Criar validação de payloads com mensagens padronizadas.
-- Refinar permissões por role em alunos, professores e usuários.
+- Expandir permissões por role conforme surgirem novos perfis ou fluxos administrativos.
 - Criar modelos e endpoints para atividades, entregas, correções, presença e cronograma.
 - Evoluir posts/conteúdos com paginação, busca e filtros.
 - Planejar integração real de IA pedagógica apenas após consolidar os fluxos principais.
