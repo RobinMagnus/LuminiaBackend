@@ -9,6 +9,10 @@ function filtroVisibilidade(role) {
   return { visivelPara: { $in: ['todos', 'alunos'] } };
 }
 
+function isAutorDoPost(post, user) {
+  return post.autor.toString() === user._id.toString();
+}
+
 async function listarPosts(req, res) {
   try {
     const posts = await Post.find(filtroVisibilidade(req.user.role))
@@ -45,6 +49,8 @@ async function criarPost(req, res) {
       autor: req.user._id
     });
 
+    await post.populate('autor', 'nome email role');
+
     return res.status(201).json({
       mensagem: 'Post criado com sucesso.',
       post
@@ -56,14 +62,21 @@ async function criarPost(req, res) {
 
 async function atualizarPost(req, res) {
   try {
-    const post = await Post.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const postAtual = await Post.findById(req.params.id);
 
-    if (!post) {
+    if (!postAtual) {
       return res.status(404).json({ mensagem: 'Post não encontrado.' });
     }
+
+    if (!isAutorDoPost(postAtual, req.user)) {
+      return res.status(403).json({ mensagem: 'Você não possui permissão para alterar este post.' });
+    }
+
+    const { autor, ...dadosAtualizacao } = req.body;
+    const post = await Post.findByIdAndUpdate(req.params.id, dadosAtualizacao, {
+      new: true,
+      runValidators: true
+    }).populate('autor', 'nome email role');
 
     return res.json({
       mensagem: 'Post atualizado com sucesso.',
@@ -76,11 +89,17 @@ async function atualizarPost(req, res) {
 
 async function removerPost(req, res) {
   try {
-    const post = await Post.findByIdAndDelete(req.params.id);
+    const postAtual = await Post.findById(req.params.id);
 
-    if (!post) {
+    if (!postAtual) {
       return res.status(404).json({ mensagem: 'Post não encontrado.' });
     }
+
+    if (!isAutorDoPost(postAtual, req.user)) {
+      return res.status(403).json({ mensagem: 'Você não possui permissão para excluir este post.' });
+    }
+
+    const post = await Post.findByIdAndDelete(req.params.id);
 
     await Comentario.deleteMany({ postId: post._id });
 

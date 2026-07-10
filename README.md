@@ -58,10 +58,21 @@ PORT=3000
 MONGO_URI=mongodb://luminia:luminia123@localhost:27017/luminia_db?authSource=admin
 JWT_SECRET=troque_este_segredo
 JWT_EXPIRES_IN=1d
+FRONTEND_URL=http://localhost:5173
 CORS_ORIGIN=http://localhost:5173,http://localhost:5174
 ```
 
-Para uso real, troque `JWT_SECRET` por um valor seguro. A variável `CORS_ORIGIN` aceita uma lista separada por vírgulas com as origens permitidas para o frontend.
+Para uso real, troque `JWT_SECRET` por um valor seguro. A variável `CORS_ORIGIN` aceita uma lista separada por vírgulas com as origens permitidas para o frontend. Quando `CORS_ORIGIN` não estiver definida, o backend usa `FRONTEND_URL`.
+
+## CORS
+
+O CORS é configurado em `src/app.js` por variável de ambiente:
+
+- `CORS_ORIGIN`: lista de origens permitidas separadas por vírgula;
+- `FRONTEND_URL`: origem única usada como fallback;
+- fallback local: `http://localhost:5173,http://localhost:5174`.
+
+A configuração permite o uso de `Authorization` e `Content-Type` em desenvolvimento local. Não há uso de cookies ou `credentials` nesta etapa; a sessão web usa Bearer Token.
 
 ## Docker e MongoDB
 
@@ -185,6 +196,7 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
 | `GET` | `/alunos` | JWT + professor | Lista perfis de alunos. |
+| `GET` | `/alunos/me` | JWT + aluno | Retorna o perfil do aluno autenticado. |
 | `GET` | `/alunos/:id` | JWT | Professor acessa qualquer perfil; aluno acessa somente o próprio. |
 | `POST` | `/alunos` | JWT + professor | Cria perfil de aluno. |
 | `PUT` | `/alunos/:id` | JWT | Professor atualiza qualquer perfil; aluno atualiza somente `nome` e `dataNascimento` do próprio perfil. |
@@ -195,6 +207,7 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
 | `GET` | `/professores` | JWT | Lista perfis de professores. |
+| `GET` | `/professores/me` | JWT + professor | Retorna o perfil do professor autenticado. |
 | `GET` | `/professores/:id` | JWT | Busca professor por ID. |
 | `POST` | `/professores` | JWT + professor | Cria perfil de professor. |
 | `PUT` | `/professores/:id` | JWT + professor próprio | Atualiza somente o próprio perfil de professor. |
@@ -202,15 +215,15 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 
 ### Posts
 
-Todas as rotas de posts exigem JWT. Criação, edição e remoção exigem role `professor`.
+Todas as rotas de posts exigem JWT. Criação exige role `professor`; edição e remoção exigem role `professor` e autoria do post.
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
 | `GET` | `/posts` | JWT | Lista posts visíveis para a role do usuário. |
 | `GET` | `/posts/:id` | JWT | Busca post visível por ID. |
 | `POST` | `/posts` | JWT + professor | Cria post. |
-| `PUT` | `/posts/:id` | JWT + professor | Atualiza post. |
-| `DELETE` | `/posts/:id` | JWT + professor | Remove post. |
+| `PUT` | `/posts/:id` | JWT + professor autor | Atualiza post próprio. |
+| `DELETE` | `/posts/:id` | JWT + professor autor | Remove post próprio e comentários relacionados. |
 
 Visibilidade de posts:
 
@@ -409,10 +422,24 @@ A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banc
 
 - O backend já fornece autenticação real via `POST /auth/login` e sessão via `GET /auth/me`.
 - O frontend consome `POST /auth/login`, salva o token JWT no `localStorage`, usa `GET /auth/me` para restaurar sessão e envia `Authorization: Bearer TOKEN` nas chamadas protegidas.
-- O frontend também tenta consumir `GET /posts` e `GET /posts/:id` para telas de conteúdos.
+- O frontend consome `GET /posts`, `GET /posts/:id`, `POST /posts`, `PUT /posts/:id` e `DELETE /posts/:id` para conteúdos/posts reais.
+- O frontend consome `GET /alunos/me` e `GET /professores/me` para perfis básicos reais.
 - O frontend consome comentários reais com `GET /posts/:postId/comentarios`, `POST /posts/:postId/comentarios`, `PUT /comentarios/:id` e `DELETE /comentarios/:id`.
 - O CORS está configurável por `CORS_ORIGIN` e, por padrão, permite `http://localhost:5173` e `http://localhost:5174`.
 - O CI do backend usa GitHub Actions com MongoDB em service container, executa `npm ci`, `npm run seed`, sobe a API e valida `http://localhost:3000`.
+
+## Matriz de autorização
+
+| Ação | Aluno | Professor |
+| --- | --- | --- |
+| Realizar login | Sim | Sim |
+| Restaurar sessão em `/auth/me` | Sim | Sim |
+| Visualizar posts | Sim | Sim |
+| Criar post | Não | Sim |
+| Editar post autorizado | Não | Sim, se for autor |
+| Excluir post autorizado | Não | Sim, se for autor |
+| Visualizar próprio perfil | Sim | Sim |
+| Comentar em post visível | Sim | Sim |
 
 ## Status atual
 
@@ -426,6 +453,7 @@ Implementado:
 - Seed com usuários de teste, perfis e posts.
 - Seed com comentários de aluno e professor.
 - CRUD básico para alunos, professores e posts.
+- Edição e exclusão de posts restritas ao professor autor.
 - Rotas de comentários com autorização por propriedade.
 - Filtro de visibilidade para posts conforme role do usuário.
 - Autorização refinada por role e propriedade nas rotas de alunos e professores.
@@ -440,19 +468,31 @@ Ainda não implementado:
 
 ## Limitações conhecidas
 
-- As rotas de `alunos` e `professores` já possuem regras por role/propriedade, mas ainda não têm testes automatizados cobrindo todos os cenários de autorização.
+- As rotas de `alunos` e `professores` já possuem regras por role/propriedade, mas a cobertura automatizada ainda pode ser ampliada.
 - `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
 - O seed apaga dados existentes antes de recriar os dados iniciais.
-- Não há camada de testes automatizados ou cobertura de regressão.
+- A suíte automatizada cobre autenticação, sessão, posts e comentários, mas ainda não cobre todos os cenários do MVP.
 - Comentários não possuem paginação; a listagem retorna todos os comentários do post em ordem cronológica.
 - Não existem endpoints específicos para atividades, envio de respostas, correções, presença, boletim completo ou cronograma.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
 ## Próximos passos
 
-- Expandir testes automatizados para autenticação, autorização e demais rotas principais.
-- Criar validação de payloads com mensagens padronizadas.
-- Expandir permissões por role conforme surgirem novos perfis ou fluxos administrativos.
-- Criar modelos e endpoints para atividades, entregas, correções, presença e cronograma.
-- Evoluir posts/conteúdos com paginação, busca e filtros.
-- Planejar integração real de IA pedagógica apenas após consolidar os fluxos principais.
+1. Ampliar testes automatizados para autenticação, autorização, posts e perfis.
+2. Ampliar e endurecer testes dos comentários já implementados.
+3. Criar turmas e disciplinas.
+4. Criar atividades e entregas.
+5. Criar correções, presença e boletim.
+6. Integrar IA por último, após consolidar os fluxos principais.
+
+## Histórico de evolução
+
+- Base inicial do frontend: concluída.
+- Base inicial do backend: concluída.
+- MongoDB e seed: concluídos.
+- Autenticação JWT: concluída.
+- Autorização por role: concluída.
+- Integração real frontend-backend: concluída nesta etapa.
+- Comentários: implementados.
+- Funcionalidades acadêmicas: pendentes.
+- Integração com IA: pendente e planejada para o final.

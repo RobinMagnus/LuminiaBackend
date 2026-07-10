@@ -10,7 +10,7 @@ const comentarioRoutes = require('./routes/comentarioRoutes');
 
 const app = express();
 
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174')
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173,http://localhost:5174')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);

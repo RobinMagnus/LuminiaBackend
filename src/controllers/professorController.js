@@ -15,6 +15,20 @@ async function listarProfessores(req, res) {
   }
 }
 
+async function buscarMeuPerfil(req, res) {
+  try {
+    const professor = await Professor.findOne({ userId: req.user._id }).populate('userId', 'nome email role ativo');
+
+    if (!professor) {
+      return res.status(404).json({ mensagem: 'Perfil de professor não encontrado.' });
+    }
+
+    return res.json(professor);
+  } catch (error) {
+    return res.status(500).json({ mensagem: 'Erro ao buscar perfil de professor.' });
+  }
+}
+
 async function buscarProfessorPorId(req, res) {
   try {
     const professor = await Professor.findById(req.params.id).populate('userId', 'nome email role ativo');
@@ -112,6 +126,7 @@ async function removerProfessor(req, res) {
 
 module.exports = {
   listarProfessores,
+  buscarMeuPerfil,
   buscarProfessorPorId,
   criarProfessor,
   atualizarProfessor,

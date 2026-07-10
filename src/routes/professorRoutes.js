@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/', professorController.listarProfessores);
+router.get('/me', roleMiddleware('professor'), professorController.buscarMeuPerfil);
 router.get('/:id', professorController.buscarProfessorPorId);
 router.post('/', roleMiddleware('professor'), professorController.criarProfessor);
 router.put('/:id', roleMiddleware('professor'), professorController.atualizarProfessor);

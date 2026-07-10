@@ -29,6 +29,20 @@ async function listarAlunos(req, res) {
   }
 }
 
+async function buscarMeuPerfil(req, res) {
+  try {
+    const aluno = await Aluno.findOne({ userId: req.user._id }).populate('userId', 'nome email role ativo');
+
+    if (!aluno) {
+      return res.status(404).json({ mensagem: 'Perfil de aluno não encontrado.' });
+    }
+
+    return res.json(aluno);
+  } catch (error) {
+    return res.status(500).json({ mensagem: 'Erro ao buscar perfil de aluno.' });
+  }
+}
+
 async function buscarAlunoPorId(req, res) {
   try {
     const aluno = await Aluno.findById(req.params.id).populate('userId', 'nome email role ativo');
@@ -127,6 +141,7 @@ async function removerAluno(req, res) {
 
 module.exports = {
   listarAlunos,
+  buscarMeuPerfil,
   buscarAlunoPorId,
   criarAluno,
   atualizarAluno,

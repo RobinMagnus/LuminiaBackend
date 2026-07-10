@@ -86,6 +86,60 @@ Formato público retornado pela API:
 
 `podeEditar` e `podeExcluir` são calculados no backend.
 
+## Perfis autenticados
+
+```http
+GET /alunos/me
+GET /professores/me
+```
+
+Autenticação: JWT
+
+Roles:
+
+- `/alunos/me`: `aluno`
+- `/professores/me`: `professor`
+
+Resposta `200`: documento do perfil vinculado ao usuário autenticado, com `userId` populado com `nome`, `email`, `role` e `ativo`.
+
+Erros principais:
+
+- `401`: token ausente ou inválido;
+- `403`: role incompatível;
+- `404`: perfil ainda não cadastrado.
+
+## Posts
+
+```http
+GET /posts
+GET /posts/:id
+POST /posts
+PUT /posts/:id
+DELETE /posts/:id
+```
+
+Autenticação: JWT
+
+Regras:
+
+- `aluno` e `professor` podem listar e visualizar posts visíveis para sua role;
+- somente `professor` cria posts;
+- somente o professor autor edita ou exclui o próprio post;
+- o frontend nunca envia `autor`; o backend define autoria pelo JWT;
+- excluir um post remove seus comentários relacionados.
+
+Body de criação/edição:
+
+```json
+{
+  "titulo": "Título",
+  "conteudo": "Conteúdo",
+  "disciplina": "Tecnologia",
+  "tags": ["tag"],
+  "visivelPara": "todos"
+}
+```
+
 ## Listar comentários
 
 ```http
