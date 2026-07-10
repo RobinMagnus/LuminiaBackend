@@ -1,29 +1,50 @@
 # Luminia Backend
 
-API REST do **Luminia**, uma plataforma educacional criada para apoiar professores e alunos com organização de conteúdos, acessibilidade e uma estrutura preparada para futuras integrações com IA pedagógica.
+API REST do **Luminia**, plataforma educacional criada para apoiar fluxos de professor e aluno com autenticação, cadastro de perfis e publicação de conteúdos.
 
-Este back-end é a base inicial do MVP para hackathon/Tech Challenge FIAP. A proposta é manter o projeto simples, funcional e fácil de evoluir.
+Este backend faz parte de um MVP acadêmico/hackathon. O foco atual é fornecer uma base simples em Node.js, Express e MongoDB para autenticação JWT e consumo inicial pelo frontend.
 
-## Tecnologias
+> Observação: a pasta local deste repositório está nomeada como `LuminiaBack`.
+
+## Tecnologias usadas
 
 - Node.js
 - Express
 - MongoDB
 - Mongoose
-- JWT
+- JSON Web Token (`jsonwebtoken`)
 - bcrypt
 - dotenv
 - cors
 - nodemon
 - Docker e Docker Compose
+- GitHub Actions para CI
 
-## Como instalar
+## Scripts disponíveis
+
+Scripts reais definidos no `package.json`:
+
+| Comando | Descrição |
+| --- | --- |
+| `npm start` | Inicia a API com `node src/server.js`. |
+| `npm run dev` | Inicia a API com `nodemon src/server.js`. |
+| `npm run seed` | Limpa e recria dados iniciais no MongoDB. |
+
+Não há script de testes automatizados configurado atualmente.
+
+## Instalação
 
 ```bash
 npm install
 ```
 
-## Configurar variáveis de ambiente
+Para instalação reproduzível em CI, o projeto possui `package-lock.json` e usa:
+
+```bash
+npm ci
+```
+
+## Configuração do `.env`
 
 Crie um arquivo `.env` a partir do exemplo:
 
@@ -31,52 +52,79 @@ Crie um arquivo `.env` a partir do exemplo:
 cp .env.example .env
 ```
 
-Variáveis esperadas:
+Variáveis documentadas em `.env.example`:
 
 ```env
 PORT=3000
 MONGO_URI=mongodb://luminia:luminia123@localhost:27017/luminia_db?authSource=admin
 JWT_SECRET=troque_este_segredo
 JWT_EXPIRES_IN=1d
+CORS_ORIGIN=http://localhost:5173,http://localhost:5174
 ```
 
-Para uso real, troque o `JWT_SECRET` por um valor seguro.
+Para uso real, troque `JWT_SECRET` por um valor seguro. A variável `CORS_ORIGIN` aceita uma lista separada por vírgulas com as origens permitidas para o frontend.
 
-## Subir o MongoDB com Docker
+## Docker e MongoDB
+
+O arquivo `docker-compose.yml` sobe um serviço MongoDB com a imagem `mongo:7`.
 
 ```bash
 docker compose up -d
 ```
 
-O container será criado como `luminia-mongo`, usando a porta `27017` e volume persistente.
+Configuração atual do container:
 
-Para verificar:
+- Container: `luminia-mongo`
+- Porta: `27017`
+- Usuário padrão: `luminia`
+- Senha padrão: `luminia123`
+- Banco inicial: `luminia_db`
+- Volume persistente: `luminia_mongo_data`
+
+As credenciais podem ser sobrescritas pelas variáveis `MONGO_ROOT_USERNAME`, `MONGO_ROOT_PASSWORD` e `MONGO_DATABASE`.
+
+Para verificar se o container está ativo:
 
 ```bash
 docker ps
 ```
 
-## Rodar a API
+## Executando a API
 
-Ambiente de desenvolvimento:
+Com o MongoDB ativo e o `.env` configurado:
 
 ```bash
 npm run dev
 ```
 
-Ambiente simples de execução:
+ou:
 
 ```bash
 npm start
 ```
 
-A API ficará disponível em:
+A API fica disponível em:
 
 ```txt
 http://localhost:3000
 ```
 
-## Rodar o seed
+Rota pública de verificação:
+
+```bash
+curl http://localhost:3000
+```
+
+Resposta esperada:
+
+```json
+{
+  "mensagem": "API Luminia em funcionamento.",
+  "versao": "1.0.0"
+}
+```
+
+## Seed
 
 Com o MongoDB ativo e o `.env` configurado:
 
@@ -84,133 +132,231 @@ Com o MongoDB ativo e o `.env` configurado:
 npm run seed
 ```
 
-Usuários de teste criados:
+O seed apaga dados existentes de `Post`, `Aluno`, `Professor` e `User`, e recria dados mínimos para teste.
+
+Usuários criados:
 
 | Perfil | Email | Senha |
 | --- | --- | --- |
-| Professor | professor@luminia.com | 123456 |
-| Aluno | aluno@luminia.com | 123456 |
+| Professor | `professor@luminia.com` | `123456` |
+| Aluno | `aluno@luminia.com` | `123456` |
 
-O seed também cria os perfis de aluno/professor e 2 posts de exemplo.
+O seed também cria:
 
-## Rotas principais
+- um perfil de professor vinculado ao usuário professor;
+- um perfil de aluno vinculado ao usuário aluno;
+- dois posts de exemplo.
 
-### Auth
+## Autenticação JWT
 
-```txt
-POST /auth/register
-POST /auth/login
-GET /auth/me
-```
-
-Exemplo de login:
-
-```json
-{
-  "email": "professor@luminia.com",
-  "senha": "123456"
-}
-```
-
-Use o token retornado no header:
+O login retorna um token JWT. Rotas protegidas exigem o header:
 
 ```txt
 Authorization: Bearer SEU_TOKEN
 ```
 
+O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo de expiração usa `JWT_EXPIRES_IN`, com fallback para `1d`.
+
+## Rotas disponíveis
+
+### Geral
+
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/` | Pública | Verifica se a API está ativa. |
+
+### Auth
+
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register` | Pública | Cria usuário com role `aluno` ou `professor`. |
+| `POST` | `/auth/login` | Pública | Autentica usuário e retorna JWT. |
+| `GET` | `/auth/me` | JWT | Retorna dados básicos do usuário autenticado. |
+
 ### Users
 
-Rotas protegidas por JWT:
-
-```txt
-GET /users
-GET /users/:id
-```
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/users` | JWT | Lista usuários. |
+| `GET` | `/users/:id` | JWT | Busca usuário por ID. |
 
 ### Alunos
 
-Rotas protegidas por JWT:
-
-```txt
-GET /alunos
-GET /alunos/:id
-POST /alunos
-PUT /alunos/:id
-DELETE /alunos/:id
-```
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/alunos` | JWT | Lista perfis de alunos. |
+| `GET` | `/alunos/:id` | JWT | Busca aluno por ID. |
+| `POST` | `/alunos` | JWT | Cria perfil de aluno. |
+| `PUT` | `/alunos/:id` | JWT | Atualiza perfil de aluno. |
+| `DELETE` | `/alunos/:id` | JWT | Remove perfil de aluno. |
 
 ### Professores
 
-Rotas protegidas por JWT:
-
-```txt
-GET /professores
-GET /professores/:id
-POST /professores
-PUT /professores/:id
-DELETE /professores/:id
-```
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/professores` | JWT | Lista perfis de professores. |
+| `GET` | `/professores/:id` | JWT | Busca professor por ID. |
+| `POST` | `/professores` | JWT | Cria perfil de professor. |
+| `PUT` | `/professores/:id` | JWT | Atualiza perfil de professor. |
+| `DELETE` | `/professores/:id` | JWT | Remove perfil de professor. |
 
 ### Posts
 
-Listagem e visualização exigem JWT. Criação, edição e exclusão são permitidas apenas para professores.
+Todas as rotas de posts exigem JWT. Criação, edição e remoção exigem role `professor`.
 
-```txt
-GET /posts
-GET /posts/:id
-POST /posts
-PUT /posts/:id
-DELETE /posts/:id
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/posts` | JWT | Lista posts visíveis para a role do usuário. |
+| `GET` | `/posts/:id` | JWT | Busca post visível por ID. |
+| `POST` | `/posts` | JWT + professor | Cria post. |
+| `PUT` | `/posts/:id` | JWT + professor | Atualiza post. |
+| `DELETE` | `/posts/:id` | JWT + professor | Remove post. |
+
+Visibilidade de posts:
+
+- `todos`: visível para alunos e professores;
+- `alunos`: visível apenas para alunos;
+- `professores`: visível apenas para professores.
+
+## Exemplos de requests
+
+### Login
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"professor@luminia.com","senha":"123456"}'
 ```
 
-Exemplo de criação de post como professor:
+Resposta esperada:
 
 ```json
 {
-  "titulo": "Introdução à acessibilidade digital",
-  "conteudo": "Conteúdo de apoio para discussão em sala.",
-  "disciplina": "Tecnologia",
-  "tags": ["acessibilidade", "inclusao"],
-  "visivelPara": "todos"
+  "mensagem": "Login realizado com sucesso.",
+  "token": "TOKEN_JWT",
+  "user": {
+    "id": "ID_DO_USUARIO",
+    "nome": "Professor Teste",
+    "email": "professor@luminia.com",
+    "role": "professor",
+    "ativo": true
+  }
 }
 ```
 
-## Estrutura do projeto
+### Usuário autenticado
+
+```bash
+curl http://localhost:3000/auth/me \
+  -H "Authorization: Bearer TOKEN_JWT"
+```
+
+### Listar posts
+
+```bash
+curl http://localhost:3000/posts \
+  -H "Authorization: Bearer TOKEN_JWT"
+```
+
+### Criar post como professor
+
+```bash
+curl -X POST http://localhost:3000/posts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN_JWT" \
+  -d '{
+    "titulo": "Introdução à acessibilidade digital",
+    "conteudo": "Conteúdo de apoio para discussão em sala.",
+    "disciplina": "Tecnologia",
+    "tags": ["acessibilidade", "inclusao"],
+    "visivelPara": "todos"
+  }'
+```
+
+## Estrutura de pastas
 
 ```txt
-src/
-├── config/
-│   └── database.js
-├── controllers/
-│   ├── alunoController.js
-│   ├── authController.js
-│   ├── postController.js
-│   ├── professorController.js
-│   └── userController.js
-├── middlewares/
-│   ├── authMiddleware.js
-│   └── roleMiddleware.js
-├── models/
-│   ├── Aluno.js
-│   ├── Post.js
-│   ├── Professor.js
-│   └── User.js
-├── routes/
-│   ├── alunoRoutes.js
-│   ├── authRoutes.js
-│   ├── postRoutes.js
-│   ├── professorRoutes.js
-│   └── userRoutes.js
-├── seed/
-│   └── seed.js
-├── app.js
-└── server.js
+.
+├── .github/
+│   └── workflows/
+│       └── backend-ci.yml
+├── src/
+│   ├── config/
+│   │   └── database.js
+│   ├── controllers/
+│   │   ├── alunoController.js
+│   │   ├── authController.js
+│   │   ├── postController.js
+│   │   ├── professorController.js
+│   │   └── userController.js
+│   ├── middlewares/
+│   │   ├── authMiddleware.js
+│   │   └── roleMiddleware.js
+│   ├── models/
+│   │   ├── Aluno.js
+│   │   ├── Post.js
+│   │   ├── Professor.js
+│   │   └── User.js
+│   ├── routes/
+│   │   ├── alunoRoutes.js
+│   │   ├── authRoutes.js
+│   │   ├── postRoutes.js
+│   │   ├── professorRoutes.js
+│   │   └── userRoutes.js
+│   ├── seed/
+│   │   └── seed.js
+│   ├── app.js
+│   └── server.js
+├── docker-compose.yml
+├── package.json
+├── package-lock.json
+└── README.md
 ```
+
+## Status da integração
+
+- O backend já fornece autenticação real via `POST /auth/login` e sessão via `GET /auth/me`.
+- O frontend consome `POST /auth/login`, salva o token JWT no `localStorage`, usa `GET /auth/me` para restaurar sessão e envia `Authorization: Bearer TOKEN` nas chamadas protegidas.
+- O frontend também tenta consumir `GET /posts` e `GET /posts/:id` para telas de conteúdos.
+- O CORS está configurável por `CORS_ORIGIN` e, por padrão, permite `http://localhost:5173` e `http://localhost:5174`.
+- O CI do backend usa GitHub Actions com MongoDB em service container, executa `npm ci`, `npm run seed`, sobe a API e valida `http://localhost:3000`.
+
+## Status atual
+
+Implementado:
+
+- API Express com organização por rotas, controllers, models e middlewares.
+- Conexão com MongoDB via Mongoose.
+- Autenticação JWT com senha criptografada por bcrypt.
+- Models de `User`, `Aluno`, `Professor` e `Post`.
+- Seed com usuários de teste, perfis e posts.
+- CRUD básico para alunos, professores e posts.
+- Filtro de visibilidade para posts conforme role do usuário.
+- CORS configurável.
+- Workflow de CI para backend.
+
+Ainda não implementado:
+
+- Testes automatizados.
+- Modelos reais de atividades, entregas, correções, presença, boletim detalhado, cronograma ou feedback de IA.
+- Integração com provedores de IA.
+- Regras refinadas de autorização para todas as rotas de alunos e professores.
+- Paginação, filtros avançados e validação centralizada de entrada.
+
+## Limitações conhecidas
+
+- As rotas de `alunos` e `professores` exigem JWT, mas ainda não restringem ações por role.
+- `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
+- O seed apaga dados existentes antes de recriar os dados iniciais.
+- Não há camada de testes automatizados ou cobertura de regressão.
+- Não existem endpoints específicos para atividades, envio de respostas, correções, presença, boletim completo ou cronograma.
+- Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
 ## Próximos passos
 
-- Adicionar validações mais completas nos dados de entrada.
-- Criar testes automatizados para autenticação e rotas principais.
-- Definir permissões mais detalhadas para aluno e professor.
-- Criar modelos futuros para atividades, feedback da IA e registros de interação com IA.
-- Integrar a camada de IA pedagógica, como Gemini API, somente após consolidar os fluxos principais.
+- Adicionar testes automatizados para autenticação, autorização e rotas principais.
+- Criar validação de payloads com mensagens padronizadas.
+- Refinar permissões por role em alunos, professores e usuários.
+- Criar modelos e endpoints para atividades, entregas, correções, presença e cronograma.
+- Evoluir posts/conteúdos com paginação, busca e filtros.
+- Planejar integração real de IA pedagógica apenas após consolidar os fluxos principais.
