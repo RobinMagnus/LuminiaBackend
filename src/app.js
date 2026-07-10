@@ -9,7 +9,20 @@ const postRoutes = require('./routes/postRoutes');
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Origem não permitida pelo CORS.'));
+  }
+}));
 app.use(express.json());
 
 app.get('/', (req, res) => {

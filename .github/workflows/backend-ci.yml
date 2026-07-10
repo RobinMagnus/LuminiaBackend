@@ -1,0 +1,65 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: luminia
+          MONGO_INITDB_ROOT_PASSWORD: luminia123
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PORT: 3000
+      MONGO_URI: mongodb://luminia:luminia123@localhost:27017/luminia_db?authSource=admin
+      JWT_SECRET: github_actions_test_secret
+      JWT_EXPIRES_IN: 1d
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Seed database
+        run: npm run seed
+
+      - name: Start API
+        run: npm start &
+
+      - name: Check API health
+        run: |
+          for attempt in {1..20}; do
+            if curl --fail http://localhost:3000; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
