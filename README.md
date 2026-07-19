@@ -41,14 +41,16 @@ git pull origin develop
 git switch -c feature/nome-da-feature
 ```
 
-- Após concluir a alteração, envie a feature e abra um Pull Request para `develop`:
+- Após concluir a alteração, envie a feature:
 
 ```bash
 git push -u origin feature/nome-da-feature
 ```
 
-- Quando os checks `build`, `test` e `api` passarem, o workflow habilita o auto-merge da feature em `develop`.
+- O push em `feature/**` executa os checks `build`, `test` e `api` uma única vez.
+- Quando os checks passarem, o workflow cria ou reutiliza automaticamente o Pull Request da feature para `develop` e habilita o auto-merge.
 - O push resultante em `develop` executa uma única validação e, se ela passar, cria ou reutiliza o Pull Request para `main` e habilita seu auto-merge.
+- O Pull Request de release solicita automaticamente a revisão de `@RobinMagnus`; o merge aguarda a aprovação e as proteções da `main`.
 - A branch `main` deve exigir os checks `build` e `test` e uma aprovação de `@RobinMagnus`.
 - O arquivo `.github/CODEOWNERS` define `@RobinMagnus` como responsável pelo código.
 - O workflow usa exclusivamente o `github.token` temporário fornecido pelo GitHub Actions, com permissões de escrita para `contents` e `pull-requests` declaradas no próprio arquivo.
@@ -180,6 +182,8 @@ O seed também cria:
 - um perfil de aluno vinculado ao usuário aluno;
 - dois posts de exemplo.
 - dois comentários de exemplo, um criado pelo aluno e outro pelo professor.
+- uma atividade com entrega corrigida;
+- um registro de presença e um evento de cronograma.
 
 ## Autenticação JWT
 
@@ -356,7 +360,7 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
 npm test
 ```
 
-A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 47 testes atuais cobrem autenticação, autorização, perfis, posts, comentários, paginação, filtros, validação central, middlewares, CORS e respostas para rotas inexistentes.
+A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 60 testes atuais cobrem autenticação, autorização, perfis, posts, comentários e os fluxos acadêmicos de atividades, entregas, correções, presença, boletim e cronograma.
 
 O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer métrica global não supera 90%: statements, branches, functions ou lines. Na medição atual, todas estão acima do limite.
 
@@ -456,10 +460,14 @@ Implementado:
 - Autorização refinada por role e propriedade nas rotas de alunos e professores.
 - CORS configurável.
 - Workflow de CI para backend.
+- Atividades com autoria, turma, disciplina, prazo e status.
+- Entregas únicas por aluno e atividade, com acesso restrito à turma.
+- Correções com nota e feedback vinculadas à entrega.
+- Registro de presença, boletim completo e cronograma por turma.
 
 Ainda não implementado:
 
-- Modelos reais de atividades, entregas, correções, presença, boletim detalhado, cronograma ou feedback de IA.
+- Feedback pedagógico gerado por IA.
 - Integração com provedores de IA.
 
 ## Limitações conhecidas
@@ -467,7 +475,6 @@ Ainda não implementado:
 - `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
 - O seed apaga dados existentes antes de recriar os dados iniciais.
 - A suíte automatizada cobre autenticação, sessão, posts e comentários, mas ainda não cobre todos os cenários do MVP.
-- Não existem endpoints específicos para atividades, envio de respostas, correções, presença, boletim completo ou cronograma.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
 ## Próximos passos
@@ -475,6 +482,6 @@ Ainda não implementado:
 1. ~~Ampliar testes automatizados para autenticação, autorização, posts e perfis.~~ Concluído.
 2. ~~Ampliar e endurecer testes dos comentários já implementados.~~ Concluído.
 3. Criar turmas e disciplinas.
-4. Criar atividades e entregas.
-5. Criar correções, presença e boletim.
+4. ~~Criar atividades e entregas.~~ Concluído.
+5. ~~Criar correções, presença e boletim.~~ Concluído.
 6. Integrar IA por último, após consolidar os fluxos principais.

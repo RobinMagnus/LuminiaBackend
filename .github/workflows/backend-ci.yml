@@ -4,16 +4,14 @@ on:
   push:
     branches:
       - develop
-  pull_request:
-    branches:
-      - develop
+      - 'feature/**'
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  group: backend-ci-${{ github.event.pull_request.number || github.ref }}
+  group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -116,12 +114,8 @@ jobs:
           exit 1
 
   merge-feature-into-develop:
-    name: merge feature into develop
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.base.ref == 'develop' &&
-      startsWith(github.event.pull_request.head.ref, 'feature/') &&
-      github.event.pull_request.draft == false
+    name: Auto PR feature to develop
+    if: startsWith(github.ref, 'refs/heads/feature/')
     needs:
       - build
       - test
@@ -132,15 +126,39 @@ jobs:
       GH_REPO: RobinMagnus/LuminiaBackend
 
     steps:
+      - name: Create or reuse feature pull request
+        id: pull-request
+        run: |
+          head_branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          pr_number=$(gh pr list \
+            --repo "$GH_REPO" \
+            --head "$head_branch" \
+            --base develop \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -z "$pr_number" ]; then
+            pr_url=$(gh pr create \
+              --repo "$GH_REPO" \
+              --head "$head_branch" \
+              --base develop \
+              --title "Auto PR: $head_branch → develop" \
+              --body "PR created automatically after the backend checks passed.")
+            pr_number=${pr_url##*/}
+          fi
+
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+
       - name: Enable feature auto-merge
         run: |
-          gh pr merge "${{ github.event.pull_request.number }}" \
+          gh pr merge "${{ steps.pull-request.outputs.pr_number }}" \
             --repo "$GH_REPO" \
             --auto \
             --merge
 
   merge-develop-into-main:
-    name: merge develop into main
+    name: Auto PR develop to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     needs:
       - build
@@ -175,12 +193,20 @@ jobs:
               --repo "$GH_REPO" \
               --head develop \
               --base main \
-              --title "Automated: merge develop into main" \
-              --body "Automated PR created after the backend checks passed.")
+              --title "Release PR: develop → main" \
+              --body "Este PR foi aberto automaticamente a partir de \`develop\`. Revise e aprove para prosseguir com o merge.")
             pr_number=${pr_url##*/}
           fi
 
           echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+
+      - name: Request release review
+        if: steps.pull-request.outputs.pr_number != ''
+        run: |
+          gh api \
+            --method POST \
+            "repos/$GH_REPO/pulls/${{ steps.pull-request.outputs.pr_number }}/requested_reviewers" \
+            --field 'reviewers[]=RobinMagnus'
 
       - name: Enable develop auto-merge
         if: steps.pull-request.outputs.pr_number != ''
