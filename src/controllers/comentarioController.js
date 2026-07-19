@@ -1,13 +1,10 @@
 const mongoose = require('mongoose');
 const Comentario = require('../models/Comentario');
 const Post = require('../models/Post');
+const { criarPaginacao } = require('../utils/pagination');
 
 function validarObjectId(id) {
   return mongoose.isValidObjectId(id);
-}
-
-function normalizarConteudo(conteudo) {
-  return typeof conteudo === 'string' ? conteudo.trim() : '';
 }
 
 function isMesmoUsuario(idA, idB) {
@@ -74,12 +71,20 @@ async function listarComentarios(req, res) {
       return null;
     }
 
-    const comentarios = await Comentario.find({ postId: post._id })
-      .populate('autorId', 'nome role')
-      .sort({ criadoEm: 1 });
+    const { pagina, limite, ordem } = req.validatedQuery;
+    const filtro = { postId: post._id };
+    const [comentarios, total] = await Promise.all([
+      Comentario.find(filtro)
+        .populate('autorId', 'nome role')
+        .sort({ criadoEm: ordem === 'asc' ? 1 : -1 })
+        .skip((pagina - 1) * limite)
+        .limit(limite),
+      Comentario.countDocuments(filtro)
+    ]);
 
     return res.json({
-      dados: comentarios.map(comentario => formatarComentario(comentario, req.user, post))
+      dados: comentarios.map(comentario => formatarComentario(comentario, req.user, post)),
+      paginacao: criarPaginacao({ pagina, limite, total, quantidade: comentarios.length })
     });
   } catch (error) {
     return res.status(500).json({ mensagem: 'Erro ao listar comentários.' });
@@ -94,15 +99,7 @@ async function criarComentario(req, res) {
       return null;
     }
 
-    const conteudo = normalizarConteudo(req.body.conteudo);
-
-    if (!conteudo) {
-      return res.status(400).json({ mensagem: 'O conteúdo do comentário é obrigatório.' });
-    }
-
-    if (conteudo.length > 1000) {
-      return res.status(400).json({ mensagem: 'O comentário deve ter no máximo 1000 caracteres.' });
-    }
+    const { conteudo } = req.validatedBody;
 
     const comentario = await Comentario.create({
       postId: post._id,
@@ -137,15 +134,7 @@ async function atualizarComentario(req, res) {
       return res.status(403).json({ mensagem: 'Você não possui permissão para editar este comentário.' });
     }
 
-    const conteudo = normalizarConteudo(req.body.conteudo);
-
-    if (!conteudo) {
-      return res.status(400).json({ mensagem: 'O conteúdo do comentário é obrigatório.' });
-    }
-
-    if (conteudo.length > 1000) {
-      return res.status(400).json({ mensagem: 'O comentário deve ter no máximo 1000 caracteres.' });
-    }
+    const { conteudo } = req.validatedBody;
 
     comentario.conteudo = conteudo;
     await comentario.save();

@@ -24,15 +24,7 @@ function dadosBasicos(user) {
 
 async function register(req, res) {
   try {
-    const { nome, email, senha, role } = req.body;
-
-    if (!nome || !email || !senha || !role) {
-      return res.status(400).json({ mensagem: 'Nome, email, senha e role são obrigatórios.' });
-    }
-
-    if (!['aluno', 'professor'].includes(role)) {
-      return res.status(400).json({ mensagem: 'Role deve ser aluno ou professor.' });
-    }
+    const { nome, email, senha, role } = req.validatedBody;
 
     const userExists = await User.findOne({ email });
 
@@ -55,11 +47,7 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const { email, senha } = req.body;
-
-    if (!email || !senha) {
-      return res.status(400).json({ mensagem: 'Email e senha são obrigatórios.' });
-    }
+    const { email, senha } = req.validatedBody;
 
     const user = await User.findOne({ email }).select('+senha');
 

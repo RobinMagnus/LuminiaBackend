@@ -29,7 +29,7 @@ Scripts reais definidos no `package.json`:
 | `npm start` | Inicia a API com `node src/server.js`. |
 | `npm run dev` | Inicia a API com `nodemon src/server.js`. |
 | `npm run seed` | Limpa e recria dados iniciais no MongoDB. |
-| `npm test` | Executa testes com Jest, Supertest e MongoDB Memory Server. |
+| `npm test` | Executa testes com cobertura e exige mais de 90% em todas as métricas globais. |
 
 ## Fluxo de branching
 
@@ -350,15 +350,15 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
   -d '{ "conteudo": "Minha dúvida sobre este conteúdo." }'
 ```
 
-Respo... (truncated for brevity)
-
 ## Testes
 
 ```bash
 npm test
 ```
 
-A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Ela cobre os principais cenários de comentários: autenticação, criação, listagem, edição, exclusão[...]
+A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 47 testes atuais cobrem autenticação, autorização, perfis, posts, comentários, paginação, filtros, validação central, middlewares, CORS e respostas para rotas inexistentes.
+
+O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer métrica global não supera 90%: statements, branches, functions ou lines. Na medição atual, todas estão acima do limite.
 
 ## Estrutura de pastas
 
@@ -379,7 +379,8 @@ A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banc
 │   │   └── userController.js
 │   ├── middlewares/
 │   │   ├── authMiddleware.js
-│   │   └── roleMiddleware.js
+│   │   ├── roleMiddleware.js
+│   │   └── validationMiddleware.js
 │   ├── models/
 │   │   ├── Aluno.js
 │   │   ├── Comentario.js
@@ -395,11 +396,14 @@ A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banc
 │   │   └── userRoutes.js
 │   ├── seed/
 │   │   └── seed.js
+│   ├── utils/
+│   │   └── pagination.js
 │   ├── app.js
 │   │   └── server.js
 ├── docker-compose.yml
 ├── docs/
 │   └── API_CONTRACT.md
+├── jest.config.js
 ├── package.json
 ├── package-lock.json
 └── README.md
@@ -444,6 +448,10 @@ Implementado:
 - CRUD básico para alunos, professores e posts.
 - Edição e exclusão de posts restritas ao professor autor.
 - Rotas de comentários com autorização por propriedade.
+- Paginação padronizada nas listagens de usuários, alunos, professores, posts e comentários.
+- Filtros combináveis de busca, perfil, turma, matéria, disciplina, tag, autoria e visibilidade, conforme o recurso.
+- Validação centralizada de bodies e queries com erros estruturados por campo.
+- Cobertura automatizada global acima de 90%, protegida por limite mínimo no Jest.
 - Filtro de visibilidade para posts conforme role do usuário.
 - Autorização refinada por role e propriedade nas rotas de alunos e professores.
 - CORS configurável.
@@ -453,22 +461,19 @@ Ainda não implementado:
 
 - Modelos reais de atividades, entregas, correções, presença, boletim detalhado, cronograma ou feedback de IA.
 - Integração com provedores de IA.
-- Paginação, filtros avançados e validação centralizada de entrada.
 
 ## Limitações conhecidas
 
-- As rotas de `alunos` e `professores` já possuem regras por role/propriedade, mas a cobertura automatizada ainda pode ser ampliada.
 - `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
 - O seed apaga dados existentes antes de recriar os dados iniciais.
 - A suíte automatizada cobre autenticação, sessão, posts e comentários, mas ainda não cobre todos os cenários do MVP.
-- Comentários não possuem paginação; a listagem retorna todos os comentários do post em ordem cronológica.
 - Não existem endpoints específicos para atividades, envio de respostas, correções, presença, boletim completo ou cronograma.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
 ## Próximos passos
 
 1. ~~Ampliar testes automatizados para autenticação, autorização, posts e perfis.~~ Concluído.
-2. Ampliar e endurecer testes dos comentários já implementados.
+2. ~~Ampliar e endurecer testes dos comentários já implementados.~~ Concluído.
 3. Criar turmas e disciplinas.
 4. Criar atividades e entregas.
 5. Criar correções, presença e boletim.

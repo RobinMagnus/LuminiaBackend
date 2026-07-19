@@ -36,6 +36,48 @@ Códigos usados:
 - `409`: conflito de dados;
 - `500`: erro interno inesperado.
 
+Erros de validação retornam detalhes por campo:
+
+```json
+{
+  "mensagem": "Dados inválidos.",
+  "erros": [
+    { "campo": "limite", "mensagem": "limite deve estar entre 1 e 100." }
+  ]
+}
+```
+
+## Paginação e ordenação
+
+As listagens usam os parâmetros `pagina` e `limite`. O limite padrão é `20` e o máximo é `100`. `ordem` aceita `asc` ou `desc`; os valores aceitos em `ordenarPor` dependem do recurso.
+
+Formato padrão da resposta:
+
+```json
+{
+  "dados": [],
+  "paginacao": {
+    "pagina": 1,
+    "limite": 20,
+    "total": 0,
+    "itens": 0,
+    "totalPaginas": 0
+  }
+}
+```
+
+Listagens e filtros disponíveis:
+
+| Rota | Filtros | Ordenação permitida |
+| --- | --- | --- |
+| `GET /posts` | `busca`, `disciplina`, `tag`, `autor`, `visivelPara` | `createdAt`, `titulo`, `disciplina` |
+| `GET /posts/:postId/comentarios` | — | `criadoEm` |
+| `GET /users` | `busca`, `role`, `ativo` | `createdAt`, `nome`, `email` |
+| `GET /alunos` | `busca`, `turma` | `createdAt`, `nome`, `matricula` |
+| `GET /professores` | `busca`, `materia`, `turma` | `createdAt`, `nome` |
+
+Os filtros de posts nunca ampliam a visibilidade definida pela role autenticada.
+
 ## Banco de dados e relacionamentos
 
 Coleções principais:
@@ -140,6 +182,8 @@ Body de criação/edição:
 }
 ```
 
+Resposta de `GET /posts`: envelope paginado no formato descrito acima. Os filtros podem ser combinados.
+
 ## Listar comentários
 
 ```http
@@ -157,7 +201,14 @@ Resposta `200`:
 
 ```json
 {
-  "dados": []
+  "dados": [],
+  "paginacao": {
+    "pagina": 1,
+    "limite": 20,
+    "total": 0,
+    "itens": 0,
+    "totalPaginas": 0
+  }
 }
 ```
 

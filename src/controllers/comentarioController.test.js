@@ -131,6 +131,85 @@ describe('comentários', () => {
     });
   });
 
+  test('listagem mantém ordem cronológica e calcula permissões no servidor', async () => {
+    const primeiro = await Comentario.create({
+      postId: post._id,
+      autorId: alunoUser._id,
+      conteudo: 'Primeiro comentário',
+      criadoEm: new Date('2026-01-01T10:00:00.000Z')
+    });
+    const segundo = await Comentario.create({
+      postId: post._id,
+      autorId: professorOutroUser._id,
+      conteudo: 'Segundo comentário',
+      criadoEm: new Date('2026-01-01T11:00:00.000Z')
+    });
+
+    const alunoResponse = await request(app)
+      .get(`/posts/${post._id}/comentarios`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const autorPostResponse = await request(app)
+      .get(`/posts/${post._id}/comentarios`)
+      .set('Authorization', `Bearer ${professorToken}`);
+
+    expect(alunoResponse.body.dados.map(item => item._id)).toEqual([
+      primeiro._id.toString(),
+      segundo._id.toString()
+    ]);
+    expect(alunoResponse.body.dados[0]).toMatchObject({ podeEditar: true, podeExcluir: true });
+    expect(alunoResponse.body.dados[1]).toMatchObject({ podeEditar: false, podeExcluir: false });
+    expect(autorPostResponse.body.dados).toEqual(expect.arrayContaining([
+      expect.objectContaining({ podeEditar: false, podeExcluir: true })
+    ]));
+  });
+
+  test('comentários possuem paginação e ordenação configuráveis', async () => {
+    await Comentario.create([
+      { postId: post._id, autorId: alunoUser._id, conteudo: 'Primeiro', criadoEm: new Date('2026-01-01') },
+      { postId: post._id, autorId: alunoUser._id, conteudo: 'Segundo', criadoEm: new Date('2026-01-02') },
+      { postId: post._id, autorId: alunoUser._id, conteudo: 'Terceiro', criadoEm: new Date('2026-01-03') }
+    ]);
+
+    const response = await request(app)
+      .get(`/posts/${post._id}/comentarios?pagina=2&limite=2&ordem=desc`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.dados.map(item => item.conteudo)).toEqual(['Primeiro']);
+    expect(response.body.paginacao).toEqual({ pagina: 2, limite: 2, total: 3, itens: 1, totalPaginas: 2 });
+  });
+
+  test('comentários rejeitam paginação e ordenação inválidas', async () => {
+    const pagina = await request(app)
+      .get(`/posts/${post._id}/comentarios?pagina=-1`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const ordem = await request(app)
+      .get(`/posts/${post._id}/comentarios?ordem=aleatoria`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(pagina.status).toBe(400);
+    expect(ordem.status).toBe(400);
+  });
+
+  test('não lista comentários com ID inválido ou post invisível para a role', async () => {
+    const postSomenteProfessores = await Post.create({
+      titulo: 'Restrito',
+      conteudo: 'Conteúdo restrito.',
+      autor: professorUser._id,
+      visivelPara: 'professores'
+    });
+
+    const idInvalido = await request(app)
+      .get('/posts/id-invalido/comentarios')
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const invisivel = await request(app)
+      .get(`/posts/${postSomenteProfessores._id}/comentarios`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(idInvalido.status).toBe(400);
+    expect(invisivel.status).toBe(404);
+  });
+
   test('aluno e professor criam comentário válido', async () => {
     const alunoResponse = await request(app)
       .post(`/posts/${post._id}/comentarios`)
@@ -169,6 +248,27 @@ describe('comentários', () => {
     expect(inexistente.status).toBe(404);
   });
 
+  test('criação normaliza espaços, aceita exatamente 1000 caracteres e rejeita tipo inválido', async () => {
+    const normalizado = await request(app)
+      .post(`/posts/${post._id}/comentarios`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: '  Comentário sem espaços externos.  ' });
+    const limite = await request(app)
+      .post(`/posts/${post._id}/comentarios`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: 'a'.repeat(1000) });
+    const tipoInvalido = await request(app)
+      .post(`/posts/${post._id}/comentarios`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: 123 });
+
+    expect(normalizado.status).toBe(201);
+    expect(normalizado.body.dados.conteudo).toBe('Comentário sem espaços externos.');
+    expect(limite.status).toBe(201);
+    expect(limite.body.dados.conteudo).toHaveLength(1000);
+    expect(tipoInvalido.status).toBe(400);
+  });
+
   test('usuário edita somente o próprio comentário', async () => {
     const comentarioAluno = await Comentario.create({
       postId: post._id,
@@ -189,6 +289,37 @@ describe('comentários', () => {
     expect(permitido.status).toBe(200);
     expect(permitido.body.dados.conteudo).toBe('Atualizado');
     expect(proibido.status).toBe(403);
+  });
+
+  test('edição rejeita ID inválido, comentário inexistente, conteúdo vazio e conteúdo longo', async () => {
+    const comentarioAluno = await Comentario.create({
+      postId: post._id,
+      autorId: alunoUser._id,
+      conteudo: 'Original'
+    });
+
+    const idInvalido = await request(app)
+      .put('/comentarios/id-invalido')
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: 'Atualizado' });
+    const inexistente = await request(app)
+      .put(`/comentarios/${new mongoose.Types.ObjectId()}`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: 'Atualizado' });
+    const vazio = await request(app)
+      .put(`/comentarios/${comentarioAluno._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: [] });
+    const longo = await request(app)
+      .put(`/comentarios/${comentarioAluno._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ conteudo: 'a'.repeat(1001) });
+
+    expect(idInvalido.status).toBe(400);
+    expect(inexistente.status).toBe(404);
+    expect(vazio.status).toBe(400);
+    expect(longo.status).toBe(400);
+    expect((await Comentario.findById(comentarioAluno._id)).conteudo).toBe('Original');
   });
 
   test('usuário exclui próprio comentário e não exclui comentário alheio', async () => {
@@ -222,6 +353,30 @@ describe('comentários', () => {
       .set('Authorization', `Bearer ${professorToken}`);
 
     expect(response.status).toBe(200);
+  });
+
+  test('exclusão rejeita ID inválido, comentário inexistente e comentário com post removido', async () => {
+    const comentarioOrfao = await Comentario.create({
+      postId: post._id,
+      autorId: alunoUser._id,
+      conteudo: 'Comentário órfão'
+    });
+    await Post.findByIdAndDelete(post._id);
+
+    const idInvalido = await request(app)
+      .delete('/comentarios/id-invalido')
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const inexistente = await request(app)
+      .delete(`/comentarios/${new mongoose.Types.ObjectId()}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const postInexistente = await request(app)
+      .delete(`/comentarios/${comentarioOrfao._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(idInvalido.status).toBe(400);
+    expect(inexistente.status).toBe(404);
+    expect(postInexistente.status).toBe(404);
+    expect(await Comentario.findById(comentarioOrfao._id)).not.toBeNull();
   });
 
   test('exclusão de post remove comentários relacionados', async () => {
