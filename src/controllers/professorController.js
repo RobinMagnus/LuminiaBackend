@@ -1,5 +1,6 @@
 const Professor = require('../models/Professor');
 const User = require('../models/User');
+const { criarPaginacao, escaparRegex } = require('../utils/pagination');
 
 function isPerfilDoUsuario(perfil, user) {
   const userId = perfil.userId?._id || perfil.userId;
@@ -8,8 +9,23 @@ function isPerfilDoUsuario(perfil, user) {
 
 async function listarProfessores(req, res) {
   try {
-    const professores = await Professor.find().populate('userId', 'nome email role ativo').sort({ createdAt: -1 });
-    return res.json(professores);
+    const { pagina, limite, ordenarPor, ordem, busca, materia, turma } = req.validatedQuery;
+    const filtro = {};
+    if (busca) filtro.nome = new RegExp(escaparRegex(busca), 'i');
+    if (materia) filtro.materias = new RegExp(`^${escaparRegex(materia)}$`, 'i');
+    if (turma) filtro.turmas = new RegExp(`^${escaparRegex(turma)}$`, 'i');
+    const [professores, total] = await Promise.all([
+      Professor.find(filtro)
+        .populate('userId', 'nome email role ativo')
+        .sort({ [ordenarPor]: ordem === 'asc' ? 1 : -1 })
+        .skip((pagina - 1) * limite)
+        .limit(limite),
+      Professor.countDocuments(filtro)
+    ]);
+    return res.json({
+      dados: professores,
+      paginacao: criarPaginacao({ pagina, limite, total, quantidade: professores.length })
+    });
   } catch (error) {
     return res.status(500).json({ mensagem: 'Erro ao listar professores.' });
   }
@@ -45,11 +61,7 @@ async function buscarProfessorPorId(req, res) {
 
 async function criarProfessor(req, res) {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ mensagem: 'userId é obrigatório.' });
-    }
+    const { userId } = req.validatedBody;
 
     const user = await User.findById(userId);
 
@@ -67,7 +79,7 @@ async function criarProfessor(req, res) {
       return res.status(409).json({ mensagem: 'Este usuário já possui perfil de professor.' });
     }
 
-    const professor = await Professor.create(req.body);
+    const professor = await Professor.create(req.validatedBody);
     return res.status(201).json({
       mensagem: 'Professor cadastrado com sucesso.',
       professor
@@ -89,7 +101,7 @@ async function atualizarProfessor(req, res) {
       return res.status(403).json({ mensagem: 'Você não possui permissão para acessar este perfil.' });
     }
 
-    const { userId, ...dadosAtualizacao } = req.body;
+    const { userId, ...dadosAtualizacao } = req.validatedBody;
     const professor = await Professor.findByIdAndUpdate(req.params.id, dadosAtualizacao, {
       new: true,
       runValidators: true

@@ -1,5 +1,6 @@
 const Aluno = require('../models/Aluno');
 const User = require('../models/User');
+const { criarPaginacao, escaparRegex } = require('../utils/pagination');
 
 function isPerfilDoUsuario(perfil, user) {
   const userId = perfil.userId?._id || perfil.userId;
@@ -22,8 +23,25 @@ function filtrarDadosPermitidosParaAluno(body) {
 
 async function listarAlunos(req, res) {
   try {
-    const alunos = await Aluno.find().populate('userId', 'nome email role ativo').sort({ createdAt: -1 });
-    return res.json(alunos);
+    const { pagina, limite, ordenarPor, ordem, busca, turma } = req.validatedQuery;
+    const filtro = {};
+    if (busca) {
+      const regex = new RegExp(escaparRegex(busca), 'i');
+      filtro.$or = [{ nome: regex }, { matricula: regex }];
+    }
+    if (turma) filtro.turma = new RegExp(`^${escaparRegex(turma)}$`, 'i');
+    const [alunos, total] = await Promise.all([
+      Aluno.find(filtro)
+        .populate('userId', 'nome email role ativo')
+        .sort({ [ordenarPor]: ordem === 'asc' ? 1 : -1 })
+        .skip((pagina - 1) * limite)
+        .limit(limite),
+      Aluno.countDocuments(filtro)
+    ]);
+    return res.json({
+      dados: alunos,
+      paginacao: criarPaginacao({ pagina, limite, total, quantidade: alunos.length })
+    });
   } catch (error) {
     return res.status(500).json({ mensagem: 'Erro ao listar alunos.' });
   }
@@ -63,11 +81,7 @@ async function buscarAlunoPorId(req, res) {
 
 async function criarAluno(req, res) {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ mensagem: 'userId é obrigatório.' });
-    }
+    const { userId } = req.validatedBody;
 
     const user = await User.findById(userId);
 
@@ -85,7 +99,7 @@ async function criarAluno(req, res) {
       return res.status(409).json({ mensagem: 'Este usuário já possui perfil de aluno.' });
     }
 
-    const aluno = await Aluno.create(req.body);
+    const aluno = await Aluno.create(req.validatedBody);
     return res.status(201).json({
       mensagem: 'Aluno cadastrado com sucesso.',
       aluno
@@ -104,8 +118,8 @@ async function atualizarAluno(req, res) {
     }
 
     const dadosAtualizacao = req.user.role === 'aluno'
-      ? filtrarDadosPermitidosParaAluno(req.body)
-      : req.body;
+      ? filtrarDadosPermitidosParaAluno(req.validatedBody)
+      : req.validatedBody;
 
     if (req.user.role === 'aluno' && !isPerfilDoUsuario(alunoAtual, req.user)) {
       return res.status(403).json({ mensagem: 'Você não possui permissão para acessar este perfil.' });

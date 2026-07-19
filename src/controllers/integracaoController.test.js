@@ -378,10 +378,10 @@ describe('integração de autenticação, perfis e posts', () => {
       .get(`/posts/${posts[2]._id}`)
       .set('Authorization', `Bearer ${alunoToken}`);
 
-    expect(listaAluno.body.map(post => post.titulo)).toEqual(expect.arrayContaining(['Todos', 'Alunos']));
-    expect(listaAluno.body.map(post => post.titulo)).not.toContain('Professores');
-    expect(listaProfessor.body.map(post => post.titulo)).toEqual(expect.arrayContaining(['Todos', 'Professores']));
-    expect(listaProfessor.body.map(post => post.titulo)).not.toContain('Alunos');
+    expect(listaAluno.body.dados.map(post => post.titulo)).toEqual(expect.arrayContaining(['Todos', 'Alunos']));
+    expect(listaAluno.body.dados.map(post => post.titulo)).not.toContain('Professores');
+    expect(listaProfessor.body.dados.map(post => post.titulo)).toEqual(expect.arrayContaining(['Todos', 'Professores']));
+    expect(listaProfessor.body.dados.map(post => post.titulo)).not.toContain('Alunos');
     expect(detalheRestrito.status).toBe(404);
   });
 
@@ -464,8 +464,8 @@ describe('integração de autenticação, perfis e posts', () => {
       .set('Authorization', `Bearer ${alunoToken}`);
 
     expect(lista.status).toBe(200);
-    expect(lista.body).toHaveLength(3);
-    expect(lista.body.every(user => user.senha === undefined)).toBe(true);
+    expect(lista.body.dados).toHaveLength(3);
+    expect(lista.body.dados.every(user => user.senha === undefined)).toBe(true);
     expect(detalhe.status).toBe(200);
     expect(detalhe.body.email).toBe('professor@luminia.com');
     expect(inexistente.status).toBe(404);
@@ -488,7 +488,7 @@ describe('integração de autenticação, perfis e posts', () => {
       .set('Authorization', `Bearer ${alunoToken}`);
 
     expect(lista.status).toBe(200);
-    expect(lista.body).toHaveLength(2);
+    expect(lista.body.dados).toHaveLength(2);
     expect(detalhe.status).toBe(200);
     expect(detalhe.body.userId.email).toBe('professor@luminia.com');
     expect(inexistente.status).toBe(404);
@@ -623,5 +623,128 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(exclusao.status).toBe(404);
     expect(edicaoIdInvalido.status).toBe(400);
     expect(exclusaoIdInvalido.status).toBe(400);
+  });
+
+  test('paginação de posts retorna metadados e respeita página, limite e ordenação', async () => {
+    await Post.create([
+      { titulo: 'Post A', conteudo: 'A', disciplina: 'História', autor: professorUser._id, visivelPara: 'todos' },
+      { titulo: 'Post B', conteudo: 'B', disciplina: 'História', autor: professorUser._id, visivelPara: 'todos' },
+      { titulo: 'Post C', conteudo: 'C', disciplina: 'História', autor: professorUser._id, visivelPara: 'todos' }
+    ]);
+
+    const response = await request(app)
+      .get('/posts?pagina=2&limite=2&ordenarPor=titulo&ordem=asc')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.dados).toHaveLength(1);
+    expect(response.body.dados[0].titulo).toBe('Post C');
+    expect(response.body.paginacao).toEqual({
+      pagina: 2,
+      limite: 2,
+      total: 3,
+      itens: 1,
+      totalPaginas: 2
+    });
+  });
+
+  test('filtros de posts combinam busca, disciplina, tag, autor e visibilidade sem furar autorização', async () => {
+    await Post.create([
+      {
+        titulo: 'Newton aplicado',
+        conteudo: 'Força e aceleração',
+        disciplina: 'Física',
+        tags: ['dinâmica'],
+        autor: professorUser._id,
+        visivelPara: 'alunos'
+      },
+      {
+        titulo: 'Reunião docente',
+        conteudo: 'Planejamento',
+        disciplina: 'Pedagogia',
+        tags: ['docentes'],
+        autor: outroProfessorUser._id,
+        visivelPara: 'professores'
+      }
+    ]);
+
+    const filtrado = await request(app)
+      .get(`/posts?busca=aceleração&disciplina=física&tag=DINÂMICA&autor=${professorUser._id}&visivelPara=alunos`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const tentativaAcesso = await request(app)
+      .get('/posts?visivelPara=professores')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(filtrado.status).toBe(200);
+    expect(filtrado.body.dados.map(item => item.titulo)).toEqual(['Newton aplicado']);
+    expect(tentativaAcesso.status).toBe(200);
+    expect(tentativaAcesso.body.dados).toHaveLength(0);
+  });
+
+  test('queries inválidas de paginação e filtros são rejeitadas antes do controller', async () => {
+    const queries = [
+      'pagina=0',
+      'pagina=1.5',
+      'limite=101',
+      'ordem=aleatoria',
+      'ordenarPor=senha',
+      'autor=id-invalido',
+      `busca=${'a'.repeat(101)}`,
+      'visivelPara=admin'
+    ];
+
+    const responses = await Promise.all(queries.map(query => request(app)
+      .get(`/posts?${query}`)
+      .set('Authorization', `Bearer ${professorToken}`)));
+
+    expect(responses.every(response => response.status === 400)).toBe(true);
+    expect(responses.every(response => response.body.mensagem === 'Dados inválidos.')).toBe(true);
+    expect(responses.every(response => Array.isArray(response.body.erros))).toBe(true);
+  });
+
+  test('filtros paginados de usuários, alunos e professores retornam apenas correspondências', async () => {
+    const users = await request(app)
+      .get('/users?busca=professor&role=professor&ativo=true&ordenarPor=nome&ordem=asc&limite=1')
+      .set('Authorization', `Bearer ${professorToken}`);
+    const alunos = await request(app)
+      .get('/alunos?busca=ALU-TESTE&turma=1a&ordenarPor=matricula')
+      .set('Authorization', `Bearer ${professorToken}`);
+    const professores = await request(app)
+      .get('/professores?busca=outro&materia=matemática&turma=2a&ordenarPor=nome')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(users.status).toBe(200);
+    expect(users.body.dados).toHaveLength(1);
+    expect(users.body.paginacao.total).toBe(2);
+    expect(alunos.body.dados).toHaveLength(1);
+    expect(alunos.body.dados[0].matricula).toBe('ALU-TESTE');
+    expect(professores.body.dados).toHaveLength(1);
+    expect(professores.body.dados[0].nome).toBe('Outro Professor');
+  });
+
+  test('validação central rejeita tipos, enums e tamanhos inválidos nos bodies', async () => {
+    const registro = await request(app)
+      .post('/auth/register')
+      .send({ nome: 10, email: 'x', senha: '123', role: 'admin' });
+    const login = await request(app)
+      .post('/auth/login')
+      .send({ email: [], senha: null });
+    const postInvalido = await request(app)
+      .post('/posts')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ titulo: 'ab', conteudo: '', tags: 'tag', visivelPara: 'admin' });
+    const alunoInvalido = await request(app)
+      .post('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: 'inválido', nome: 'A', matricula: 123 });
+    const professorInvalido = await request(app)
+      .post('/professores')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: 'inválido', nome: 'P', materias: [1], turmas: '1A' });
+
+    for (const response of [registro, login, postInvalido, alunoInvalido, professorInvalido]) {
+      expect(response.status).toBe(400);
+      expect(response.body.erros.length).toBeGreaterThan(0);
+    }
   });
 });

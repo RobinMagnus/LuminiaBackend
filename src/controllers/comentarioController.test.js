@@ -163,6 +163,34 @@ describe('comentários', () => {
     ]));
   });
 
+  test('comentários possuem paginação e ordenação configuráveis', async () => {
+    await Comentario.create([
+      { postId: post._id, autorId: alunoUser._id, conteudo: 'Primeiro', criadoEm: new Date('2026-01-01') },
+      { postId: post._id, autorId: alunoUser._id, conteudo: 'Segundo', criadoEm: new Date('2026-01-02') },
+      { postId: post._id, autorId: alunoUser._id, conteudo: 'Terceiro', criadoEm: new Date('2026-01-03') }
+    ]);
+
+    const response = await request(app)
+      .get(`/posts/${post._id}/comentarios?pagina=2&limite=2&ordem=desc`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.dados.map(item => item.conteudo)).toEqual(['Primeiro']);
+    expect(response.body.paginacao).toEqual({ pagina: 2, limite: 2, total: 3, itens: 1, totalPaginas: 2 });
+  });
+
+  test('comentários rejeitam paginação e ordenação inválidas', async () => {
+    const pagina = await request(app)
+      .get(`/posts/${post._id}/comentarios?pagina=-1`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const ordem = await request(app)
+      .get(`/posts/${post._id}/comentarios?ordem=aleatoria`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(pagina.status).toBe(400);
+    expect(ordem.status).toBe(400);
+  });
+
   test('não lista comentários com ID inválido ou post invisível para a role', async () => {
     const postSomenteProfessores = await Post.create({
       titulo: 'Restrito',
