@@ -109,6 +109,50 @@ describe('domínio acadêmico', () => {
     expect(outroProfessorEdita.status).toBe(403);
   });
 
+  test('atividades aplicam ordenação e protegem rascunhos e turmas do aluno', async () => {
+    const publicada = (await criarAtividade()).body.atividade;
+    const rascunho = (await request(app).post('/atividades').set(auth(tokens.professor)).send({
+      titulo: 'Lista ainda em preparação',
+      enunciado: 'Conteúdo reservado ao professor.',
+      disciplina: 'Matemática',
+      turma: '1A',
+      prazo: '2027-12-11T12:00:00.000Z',
+      status: 'rascunho'
+    })).body.atividade;
+    const outraTurma = (await request(app).post('/atividades').set(auth(tokens.professor)).send({
+      titulo: 'Atividade de outra turma',
+      enunciado: 'Conteúdo exclusivo da turma 2B.',
+      disciplina: 'Matemática',
+      turma: '2B',
+      prazo: '2027-12-12T12:00:00.000Z',
+      status: 'publicada'
+    })).body.atividade;
+
+    const listaProfessor = await request(app)
+      .get('/atividades?status=publicada&ordem=asc')
+      .set(auth(tokens.professor));
+    const tentativaDeAlterarTurma = await request(app)
+      .get('/atividades?turma=2B&status=rascunho')
+      .set(auth(tokens.aluno));
+    const detalheRascunho = await request(app)
+      .get(`/atividades/${rascunho._id}`)
+      .set(auth(tokens.aluno));
+    const detalheOutraTurma = await request(app)
+      .get(`/atividades/${outraTurma._id}`)
+      .set(auth(tokens.aluno));
+    await Aluno.findOneAndDelete({ userId: aluno._id });
+    const detalheSemPerfil = await request(app)
+      .get(`/atividades/${publicada._id}`)
+      .set(auth(tokens.aluno));
+
+    expect(listaProfessor.body.dados).toHaveLength(2);
+    expect(listaProfessor.body.dados.every(item => item.status === 'publicada')).toBe(true);
+    expect(tentativaDeAlterarTurma.body.dados.map(item => item._id)).toEqual([publicada._id]);
+    expect(detalheRascunho.status).toBe(403);
+    expect(detalheOutraTurma.status).toBe(403);
+    expect(detalheSemPerfil.status).toBe(403);
+  });
+
   test('aluno da turma entrega uma vez e professor autor lista entregas', async () => {
     const atividade = (await criarAtividade()).body.atividade;
     const entrega = await request(app).post(`/atividades/${atividade._id}/entregas`).set(auth(tokens.aluno)).send({ resposta: 'x = 4' });
@@ -228,12 +272,16 @@ describe('domínio acadêmico', () => {
     await Atividade.findByIdAndUpdate(atividade._id, { status: 'encerrada' });
     const encerrada = await request(app).post(`/atividades/${atividade._id}/entregas`).set(auth(tokens.aluno)).send({ resposta: 'Resposta' });
     const entregaInexistente = await request(app).put(`/entregas/${new mongoose.Types.ObjectId()}/correcao`).set(auth(tokens.professor)).send({ nota: 5, feedback: 'Ok' });
+    const envioComAtividadeInvalida = await request(app).post('/atividades/invalida/entregas').set(auth(tokens.aluno)).send({ resposta: 'Resposta' });
+    const consultaInexistente = await request(app).get(`/entregas/${new mongoose.Types.ObjectId()}/correcao`).set(auth(tokens.professor));
     const correcaoInvalida = await request(app).get('/entregas/invalida/correcao').set(auth(tokens.professor));
     const listaInexistente = await request(app).get(`/atividades/${new mongoose.Types.ObjectId()}/entregas`).set(auth(tokens.professor));
     const listaProibida = await request(app).get(`/atividades/${atividade._id}/entregas`).set(auth(tokens.outroProfessor));
 
     expect(encerrada.status).toBe(404);
     expect(entregaInexistente.status).toBe(404);
+    expect(envioComAtividadeInvalida.status).toBe(400);
+    expect(consultaInexistente.status).toBe(404);
     expect(correcaoInvalida.status).toBe(400);
     expect(listaInexistente.status).toBe(404);
     expect(listaProibida.status).toBe(403);
