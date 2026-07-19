@@ -360,7 +360,7 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
 npm test
 ```
 
-A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 60 testes atuais cobrem autenticação, autorização, perfis, posts, comentários e os fluxos acadêmicos de atividades, entregas, correções, presença, boletim e cronograma.
+A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 61 testes atuais cobrem autenticação, autorização, perfis, posts, comentários e os fluxos acadêmicos de atividades, entregas, correções, presença, boletim e cronograma.
 
 O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer métrica global não supera 90%: statements, branches, functions ou lines. Na medição atual, todas estão acima do limite.
 
