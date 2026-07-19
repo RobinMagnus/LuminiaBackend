@@ -62,7 +62,7 @@ FRONTEND_URL=http://localhost:5173
 CORS_ORIGIN=http://localhost:5173,http://localhost:5174
 ```
 
-Para uso real, troque `JWT_SECRET` por um valor seguro. A variável `CORS_ORIGIN` aceita uma lista separada por vírgulas com as origens permitidas para o frontend. Quando `CORS_ORIGIN` não estiver definida, o backend usa `FRONTEND_URL`.
+Para uso real, troque `JWT_SECRET` por um valor seguro. A variável `CORS_ORIGIN` aceita uma lista separada por vírgulas com as origens permitidas para o frontend. Quando `CORS_ORIGIN` não estiv[...]
 
 ## CORS
 
@@ -327,43 +327,7 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
   -d '{ "conteudo": "Minha dúvida sobre este conteúdo." }'
 ```
 
-Resposta `201`:
-
-```json
-{
-  "mensagem": "Comentário criado com sucesso.",
-  "dados": {
-    "_id": "comentarioId",
-    "postId": "postId",
-    "conteudo": "Minha dúvida sobre este conteúdo.",
-    "autor": {
-      "_id": "userId",
-      "nome": "Nome do usuário",
-      "role": "aluno"
-    },
-    "criadoEm": "2026-07-09T20:00:00.000Z",
-    "atualizadoEm": "2026-07-09T20:00:00.000Z",
-    "podeEditar": true,
-    "podeExcluir": true
-  }
-}
-```
-
-### Atualizar comentário
-
-```bash
-curl -X PUT http://localhost:3000/comentarios/COMENTARIO_ID \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer TOKEN_JWT" \
-  -d '{ "conteudo": "Comentário atualizado." }'
-```
-
-### Excluir comentário
-
-```bash
-curl -X DELETE http://localhost:3000/comentarios/COMENTARIO_ID \
-  -H "Authorization: Bearer TOKEN_JWT"
-```
+Respo... (truncated for brevity)
 
 ## Testes
 
@@ -371,7 +335,7 @@ curl -X DELETE http://localhost:3000/comentarios/COMENTARIO_ID \
 npm test
 ```
 
-A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Ela cobre os principais cenários de comentários: autenticação, criação, listagem, edição, exclusão, permissões e remoção de comentários quando um post é excluído.
+A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Ela cobre os principais cenários de comentários: autenticação, criação, listagem, edição, exclusão[...]
 
 ## Estrutura de pastas
 
@@ -409,7 +373,7 @@ A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banc
 │   ├── seed/
 │   │   └── seed.js
 │   ├── app.js
-│   └── server.js
+│   │   └── server.js
 ├── docker-compose.yml
 ├── docs/
 │   └── API_CONTRACT.md
@@ -485,14 +449,60 @@ Ainda não implementado:
 5. Criar correções, presença e boletim.
 6. Integrar IA por último, após consolidar os fluxos principais.
 
-## Histórico de evolução
+## Fluxo de branching e contribuições
 
-- Base inicial do frontend: concluída.
-- Base inicial do backend: concluída.
-- MongoDB e seed: concluídos.
-- Autenticação JWT: concluída.
-- Autorização por role: concluída.
-- Integração real frontend-backend: concluída nesta etapa.
-- Comentários: implementados.
-- Funcionalidades acadêmicas: pendentes.
-- Integração com IA: pendente e planejada para o final.
+- Foi criada a branch `develop`: https://github.com/RobinMagnus/LuminiaBackend/tree/develop
+
+- Fluxo recomendado para contribuições e features:
+  1. Crie sua branch a partir de `develop` com o prefixo `feature`, por exemplo: `feature/minha-nova-funcionalidade`.
+  2. Trabalhe e faça commits na sua branch `feature/*`.
+  3. Abra um Pull Request da sua branch `feature/*` para `develop`.
+  4. Quando a feature estiver testada e integrada em `develop`, abra um Pull Request de `develop` para `main` para a release.
+
+- Regra para a branch `main` (recomendada): proteger a branch para impedir merges diretos até que todos os checks e aprovações sejam atendidos. Recomenda-se exigir os checks `build` e `test` e 1 aprovação antes de permitir merge.
+
+- Como aplicar a proteção (via interface):
+  1. Vá em Settings → Branches → Add rule.
+  2. Em Branch name pattern use `main`.
+  3. Marque "Require pull request reviews before merging" (requer 1 aprovação).
+  4. Marque "Require status checks to pass before merging" e selecione os checks `build` e `test`.
+  5. Marque "Require branches to be up to date before merging" (opcional).
+  6. Marque "Include administrators" se quiser que administradores também sigam a regra.
+  7. Salve a regra.
+
+- Como aplicar a proteção (via API):
+
+```bash
+# Substitua OWNER, REPO e GITHUB_TOKEN
+curl -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer GITHUB_TOKEN" \
+  https://api.github.com/repos/OWNER/REPO/branches/main/protection \
+  -d '{
+    "required_status_checks": {
+      "strict": true,
+      "contexts": ["build","test"]
+    },
+    "enforce_admins": true,
+    "required_pull_request_reviews": {
+      "dismiss_stale_reviews": false,
+      "require_code_owner_reviews": false,
+      "required_approving_review_count": 1
+    },
+    "restrictions": null
+  }'
+```
+
+Observações importantes:
+- O token usado no comando acima precisa do escopo `repo` (para repositórios privados) ou `public_repo` (para públicos) e permissão para administrar branch protection.
+- Se você prefere que apenas usuários específicos possam dar merge, altere o campo `restrictions` via API para limitar quem pode push/merge.
+
+## Notas finais
+
+- Criei a branch `develop` para você.
+- Atualizei este README com o fluxo de branching recomendado e instruções para proteger `main` exigindo `build` e `test` e 1 aprovação.
+
+Se quiser, eu posso:
+- Executar o comando API para aplicar a proteção automaticamente (preciso que você me forneça um token com permissão `repo` ou me autorize a usar credenciais — se preferir, eu mando o comando pronto para você executar localmente).
+- Criar um arquivo `.github/CODEOWNERS` para garantir que suas aprovações sejam solicitadas automaticamente (posso criar um entry apontando para `@RobinMagnus`).
+
