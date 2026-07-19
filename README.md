@@ -478,7 +478,7 @@ Ainda não implementado:
 
 ## Próximos passos
 
-1. Ampliar testes automatizados para autenticação, autorização, posts e perfis.
+1. ~~Ampliar testes automatizados para autenticação, autorização, posts e perfis.~~ Concluído.
 2. Ampliar e endurecer testes dos comentários já implementados.
 3. Criar turmas e disciplinas.
 4. Criar atividades e entregas.

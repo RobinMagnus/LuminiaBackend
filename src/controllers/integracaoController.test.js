@@ -103,6 +103,48 @@ afterAll(async () => {
 });
 
 describe('integração de autenticação, perfis e posts', () => {
+  test('cadastro valida campos obrigatórios, role e email duplicado', async () => {
+    const semCampos = await request(app)
+      .post('/auth/register')
+      .send({ nome: 'Novo usuário' });
+
+    const roleInvalida = await request(app)
+      .post('/auth/register')
+      .send({ nome: 'Novo usuário', email: 'novo@luminia.com', senha: '123456', role: 'admin' });
+
+    const emailDuplicado = await request(app)
+      .post('/auth/register')
+      .send({ nome: 'Outro aluno', email: 'aluno@luminia.com', senha: '123456', role: 'aluno' });
+
+    expect(semCampos.status).toBe(400);
+    expect(roleInvalida.status).toBe(400);
+    expect(emailDuplicado.status).toBe(409);
+  });
+
+  test('cadastro válido cria usuário, retorna token e não expõe senha', async () => {
+    const response = await request(app)
+      .post('/auth/register')
+      .send({
+        nome: 'Nova Aluna',
+        email: 'NOVA@LUMINIA.COM',
+        senha: '123456',
+        role: 'aluno'
+      });
+
+    const userCriado = await User.findOne({ email: 'nova@luminia.com' }).select('+senha');
+
+    expect(response.status).toBe(201);
+    expect(response.body.token).toEqual(expect.any(String));
+    expect(response.body.user).toMatchObject({
+      nome: 'Nova Aluna',
+      email: 'nova@luminia.com',
+      role: 'aluno',
+      ativo: true
+    });
+    expect(response.body.user.senha).toBeUndefined();
+    expect(userCriado.senha).not.toBe('123456');
+  });
+
   test('login válido retorna token, usuário e não retorna senha', async () => {
     const response = await login('professor@luminia.com');
 
@@ -121,6 +163,19 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(response.status).toBe(401);
   });
 
+  test('login exige credenciais e recusa usuário inativo', async () => {
+    const semSenha = await request(app)
+      .post('/auth/login')
+      .send({ email: 'aluno@luminia.com' });
+
+    alunoUser.ativo = false;
+    await alunoUser.save();
+    const inativo = await login('aluno@luminia.com');
+
+    expect(semSenha.status).toBe(400);
+    expect(inativo.status).toBe(401);
+  });
+
   test('/auth/me valida token e sem token retorna 401', async () => {
     const valido = await request(app)
       .get('/auth/me')
@@ -132,6 +187,21 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(valido.body.user.role).toBe('aluno');
     expect(valido.body.user.senha).toBeUndefined();
     expect(semToken.status).toBe(401);
+  });
+
+  test('/auth/me recusa token inválido e token de usuário desativado', async () => {
+    const tokenInvalido = await request(app)
+      .get('/auth/me')
+      .set('Authorization', 'Bearer token-invalido');
+
+    alunoUser.ativo = false;
+    await alunoUser.save();
+    const usuarioInativo = await request(app)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(tokenInvalido.status).toBe(401);
+    expect(usuarioInativo.status).toBe(401);
   });
 
   test('perfis /me retornam dados reais do usuário autenticado', async () => {
@@ -147,6 +217,102 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(aluno.body.matricula).toBe('ALU-TESTE');
     expect(professor.status).toBe(200);
     expect(professor.body.materias).toContain('Tecnologia');
+  });
+
+  test('perfis /me exigem a role correspondente', async () => {
+    const professorComoAluno = await request(app)
+      .get('/alunos/me')
+      .set('Authorization', `Bearer ${professorToken}`);
+
+    const alunoComoProfessor = await request(app)
+      .get('/professores/me')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(professorComoAluno.status).toBe(403);
+    expect(alunoComoProfessor.status).toBe(403);
+  });
+
+  test('aluno acessa e altera somente o próprio perfil e apenas campos permitidos', async () => {
+    const outroAlunoUser = await User.create({
+      nome: 'Outro Aluno',
+      email: 'aluno2@luminia.com',
+      senha: '123456',
+      role: 'aluno'
+    });
+    const outroAluno = await Aluno.create({
+      userId: outroAlunoUser._id,
+      nome: 'Outro Aluno',
+      matricula: 'ALU-2',
+      turma: '2A'
+    });
+    const perfilAluno = await Aluno.findOne({ userId: alunoUser._id });
+
+    const acessoAlheio = await request(app)
+      .get(`/alunos/${outroAluno._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    const atualizacao = await request(app)
+      .put(`/alunos/${perfilAluno._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`)
+      .send({ nome: 'Aluno Atualizado', turma: 'Turma indevida', matricula: 'ALTERADA' });
+
+    expect(acessoAlheio.status).toBe(403);
+    expect(atualizacao.status).toBe(200);
+    expect(atualizacao.body.aluno.nome).toBe('Aluno Atualizado');
+    expect(atualizacao.body.aluno.turma).toBe('1A');
+    expect(atualizacao.body.aluno.matricula).toBe('ALU-TESTE');
+  });
+
+  test('professor altera e remove somente o próprio perfil', async () => {
+    const perfilProfessor = await Professor.findOne({ userId: professorUser._id });
+    const perfilOutroProfessor = await Professor.findOne({ userId: outroProfessorUser._id });
+
+    const alteraAlheio = await request(app)
+      .put(`/professores/${perfilOutroProfessor._id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ nome: 'Alteração indevida' });
+
+    const removeAlheio = await request(app)
+      .delete(`/professores/${perfilOutroProfessor._id}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+
+    const alteraProprio = await request(app)
+      .put(`/professores/${perfilProfessor._id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ nome: 'Professor Atualizado', userId: outroProfessorUser._id });
+
+    expect(alteraAlheio.status).toBe(403);
+    expect(removeAlheio.status).toBe(403);
+    expect(alteraProprio.status).toBe(200);
+    expect(alteraProprio.body.professor.nome).toBe('Professor Atualizado');
+    expect(alteraProprio.body.professor.userId.toString()).toBe(professorUser._id.toString());
+  });
+
+  test('somente professor lista alunos e cria perfil para usuário aluno sem perfil', async () => {
+    const novoAlunoUser = await User.create({
+      nome: 'Aluno sem perfil',
+      email: 'semperfil@luminia.com',
+      senha: '123456',
+      role: 'aluno'
+    });
+
+    const listaComoAluno = await request(app)
+      .get('/alunos')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    const criacao = await request(app)
+      .post('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: novoAlunoUser._id, nome: 'Aluno sem perfil', matricula: 'ALU-3' });
+
+    const duplicado = await request(app)
+      .post('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: novoAlunoUser._id, nome: 'Aluno sem perfil', matricula: 'ALU-4' });
+
+    expect(listaComoAluno.status).toBe(403);
+    expect(criacao.status).toBe(201);
+    expect(duplicado.status).toBe(409);
   });
 
   test('aluno não cria post e professor cria post', async () => {
@@ -170,6 +336,61 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(aluno.status).toBe(403);
     expect(professor.status).toBe(201);
     expect(professor.body.post.autor.email).toBe('professor@luminia.com');
+  });
+
+  test('listagem e detalhe de posts respeitam a visibilidade por role', async () => {
+    const posts = await Post.create([
+      { titulo: 'Todos', conteudo: 'Público autenticado', autor: professorUser._id, visivelPara: 'todos' },
+      { titulo: 'Alunos', conteudo: 'Só alunos', autor: professorUser._id, visivelPara: 'alunos' },
+      { titulo: 'Professores', conteudo: 'Só professores', autor: professorUser._id, visivelPara: 'professores' }
+    ]);
+
+    const listaAluno = await request(app)
+      .get('/posts')
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const listaProfessor = await request(app)
+      .get('/posts')
+      .set('Authorization', `Bearer ${professorToken}`);
+    const detalheRestrito = await request(app)
+      .get(`/posts/${posts[2]._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(listaAluno.body.map(post => post.titulo)).toEqual(expect.arrayContaining(['Todos', 'Alunos']));
+    expect(listaAluno.body.map(post => post.titulo)).not.toContain('Professores');
+    expect(listaProfessor.body.map(post => post.titulo)).toEqual(expect.arrayContaining(['Todos', 'Professores']));
+    expect(listaProfessor.body.map(post => post.titulo)).not.toContain('Alunos');
+    expect(detalheRestrito.status).toBe(404);
+  });
+
+  test('criação de post valida payload e ignora autor enviado pelo cliente', async () => {
+    const invalido = await request(app)
+      .post('/posts')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ titulo: 'Sem conteúdo' });
+
+    const valido = await request(app)
+      .post('/posts')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        titulo: 'Autoria segura',
+        conteudo: 'Conteúdo',
+        autor: outroProfessorUser._id,
+        visivelPara: 'todos'
+      });
+
+    expect(invalido.status).toBe(400);
+    expect(valido.status).toBe(201);
+    expect(valido.body.post.autor._id.toString()).toBe(professorUser._id.toString());
+  });
+
+  test('posts exigem autenticação e IDs inválidos retornam erro controlado', async () => {
+    const semToken = await request(app).get('/posts');
+    const idInvalido = await request(app)
+      .get('/posts/id-invalido')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(semToken.status).toBe(401);
+    expect(idInvalido.status).toBe(400);
   });
 
   test('professor edita e exclui somente post próprio', async () => {
