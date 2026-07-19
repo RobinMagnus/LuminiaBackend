@@ -2,7 +2,22 @@
 
 Este documento descreve o contrato usado pelo backend e consumido pelo frontend. A API usa JSON e autenticação JWT nas rotas protegidas.
 
-## Autenticação
+## SUMÁRIO
+
+1. [Autenticação](#1-autenticação)
+2. [Formato de erro](#2-formato-de-erro)
+3. [Paginação e ordenação](#3-paginação-e-ordenação)
+4. [Banco de dados e relacionamentos](#4-banco-de-dados-e-relacionamentos)
+5. [Comentário](#5-comentário)
+6. [Perfis autenticados](#6-perfis-autenticados)
+7. [Publicações](#7-publicações)
+8. [Listagem de comentários](#8-listagem-de-comentários)
+9. [Criação de comentário](#9-criação-de-comentário)
+10. [Atualização de comentário](#10-atualização-de-comentário)
+11. [Exclusão de comentário](#11-exclusão-de-comentário)
+12. [Domínio acadêmico](#12-domínio-acadêmico)
+
+## 1 AUTENTICAÇÃO
 
 Header obrigatório nas rotas protegidas:
 
@@ -17,7 +32,7 @@ Roles existentes:
 
 Não existe role `admin`.
 
-## Formato de erro
+## 2 FORMATO DE ERRO
 
 Formato padrão:
 
@@ -47,7 +62,7 @@ Erros de validação retornam detalhes por campo:
 }
 ```
 
-## Paginação e ordenação
+## 3 PAGINAÇÃO E ORDENAÇÃO
 
 As listagens usam os parâmetros `pagina` e `limite`. O limite padrão é `20` e o máximo é `100`. `ordem` aceita `asc` ou `desc`; os valores aceitos em `ordenarPor` dependem do recurso.
 
@@ -80,7 +95,7 @@ Listagens e filtros disponíveis:
 
 Os filtros de posts nunca ampliam a visibilidade definida pela role autenticada.
 
-## Banco de dados e relacionamentos
+## 4 BANCO DE DADOS E RELACIONAMENTOS
 
 Coleções principais:
 
@@ -112,7 +127,7 @@ Observações:
 - comentários podem ser criados por usuários com role `aluno` ou `professor`;
 - autorização é controlada por JWT, role e propriedade do recurso.
 
-## Comentário
+## 5 COMENTÁRIO
 
 Formato público retornado pela API:
 
@@ -135,7 +150,7 @@ Formato público retornado pela API:
 
 `podeEditar` e `podeExcluir` são calculados no backend.
 
-## Perfis autenticados
+## 6 PERFIS AUTENTICADOS
 
 ```http
 GET /alunos/me
@@ -157,7 +172,7 @@ Erros principais:
 - `403`: role incompatível;
 - `404`: perfil ainda não cadastrado.
 
-## Posts
+## 7 PUBLICAÇÕES
 
 ```http
 GET /posts
@@ -191,7 +206,7 @@ Body de criação/edição:
 
 Resposta de `GET /posts`: envelope paginado no formato descrito acima. Os filtros podem ser combinados.
 
-## Listar comentários
+## 8 LISTAGEM DE COMENTÁRIOS
 
 ```http
 GET /posts/:postId/comentarios
@@ -225,7 +240,7 @@ Erros principais:
 - `401`: token ausente ou inválido;
 - `404`: post não encontrado ou não visível para o perfil autenticado.
 
-## Criar comentário
+## 9 CRIAÇÃO DE COMENTÁRIO
 
 ```http
 POST /posts/:postId/comentarios
@@ -261,7 +276,7 @@ Erros principais:
 - `401`: token ausente ou inválido;
 - `404`: post não encontrado ou não visível para o perfil autenticado.
 
-## Atualizar comentário
+## 10 ATUALIZAÇÃO DE COMENTÁRIO
 
 ```http
 PUT /comentarios/:id
@@ -297,7 +312,7 @@ Erros principais:
 - `403`: comentário pertence a outro usuário;
 - `404`: comentário não encontrado.
 
-## Excluir comentário
+## 11 EXCLUSÃO DE COMENTÁRIO
 
 ```http
 DELETE /comentarios/:id
@@ -325,11 +340,11 @@ Erros principais:
 - `403`: usuário sem permissão para excluir;
 - `404`: comentário ou post relacionado não encontrado.
 
-## Domínio acadêmico
+## 12 DOMÍNIO ACADÊMICO
 
 Todas as rotas exigem JWT e usam validação centralizada. Listagens retornam `{ dados, paginacao }`.
 
-### Turmas
+### 12.1 Turmas
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
@@ -354,7 +369,7 @@ Body de criação:
 
 `codigo` é único e normalizado para letras maiúsculas. `turno` aceita `manha`, `tarde`, `noite` ou `integral`.
 
-### Disciplinas
+### 12.2 Disciplinas
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
@@ -379,7 +394,7 @@ Body de criação:
 
 Todas as IDs de `turmaIds` devem apontar para turmas existentes. IDs repetidas são normalizadas para um único vínculo.
 
-### Atividades e entregas
+### 12.3 Atividades e entregas
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
@@ -394,7 +409,7 @@ Todas as IDs de `turmaIds` devem apontar para turmas existentes. IDs repetidas s
 
 Excluir uma atividade também remove suas entregas e correções.
 
-### Correções
+### 12.4 Correções
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
@@ -403,7 +418,7 @@ Excluir uma atividade também remove suas entregas e correções.
 
 A nota aceita valores de `0` a `10`. Uma nova correção da mesma entrega atualiza a correção existente.
 
-### Presença
+### 12.5 Presença
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
@@ -412,7 +427,7 @@ A nota aceita valores de `0` a `10`. Uma nova correção da mesma entrega atuali
 
 O mesmo aluno, disciplina e data identificam um único registro, que pode ser atualizado por novo envio.
 
-### Boletim
+### 12.6 Boletim
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
@@ -420,7 +435,7 @@ O mesmo aluno, disciplina e data identificam um único registro, que pode ser at
 | `GET` | `/boletins/alunos/:alunoId` | Professor |
 | `POST` | `/boletins/alunos/:alunoId/notas` | Professor |
 
-### Cronograma
+### 12.7 Cronograma
 
 | Método | Rota | Permissão |
 | --- | --- | --- |
