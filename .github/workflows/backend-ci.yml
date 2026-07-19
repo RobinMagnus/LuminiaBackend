@@ -163,7 +163,7 @@ jobs:
       contents: read
       pull-requests: write
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.AUTO_MERGE_TOKEN }}
       GH_REPO: RobinMagnus/LuminiaBackend
 
     steps:
@@ -210,7 +210,7 @@ jobs:
       contents: read
       pull-requests: write
     env:
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.AUTO_MERGE_TOKEN }}
       GH_REPO: RobinMagnus/LuminiaBackend
 
     steps:

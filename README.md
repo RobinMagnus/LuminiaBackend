@@ -53,8 +53,8 @@ git push -u origin feature/nome-da-feature
 - O Pull Request de release solicita automaticamente a revisão de `@RobinMagnus`; o merge aguarda a aprovação e as proteções da `main`.
 - A branch `main` deve exigir os checks `build` e `test` e uma aprovação de `@RobinMagnus`.
 - O arquivo `.github/CODEOWNERS` define `@RobinMagnus` como responsável pelo código.
-- O workflow usa exclusivamente o `github.token` temporário fornecido pelo GitHub Actions, com permissões de escrita para `contents` e `pull-requests` declaradas no próprio arquivo.
-- Não é necessário criar ou manter o secret `AUTO_MERGE_TOKEN` para esse fluxo.
+- Os jobs de merge usam o secret `AUTO_MERGE_TOKEN`, que deve conter um Personal Access Token com acesso ao repositório e permissão para criar e gerenciar Pull Requests e workflows.
+- Cadastre o token em **Settings → Secrets and variables → Actions** com o nome exato `AUTO_MERGE_TOKEN`. Nunca registre o valor do token no repositório.
 
 ## Instalação
 
