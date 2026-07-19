@@ -5,6 +5,7 @@ module.exports = {
     'src/middlewares/**/*.js',
     'src/models/**/*.js',
     'src/routes/**/*.js',
+    'src/utils/**/*.js',
     '!src/**/*.test.js'
   ],
   coverageThreshold: {

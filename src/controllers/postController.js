@@ -1,5 +1,6 @@
 const Post = require('../models/Post');
 const Comentario = require('../models/Comentario');
+const { criarPaginacao, escaparRegex } = require('../utils/pagination');
 
 function filtroVisibilidade(role) {
   if (role === 'professor') {
@@ -15,11 +16,33 @@ function isAutorDoPost(post, user) {
 
 async function listarPosts(req, res) {
   try {
-    const posts = await Post.find(filtroVisibilidade(req.user.role))
-      .populate('autor', 'nome email role')
-      .sort({ createdAt: -1 });
+    const { pagina, limite, ordenarPor, ordem, busca, disciplina, tag, autor, visivelPara } = req.validatedQuery;
+    const filtro = filtroVisibilidade(req.user.role);
 
-    return res.json(posts);
+    if (busca) {
+      const regex = new RegExp(escaparRegex(busca), 'i');
+      filtro.$or = [{ titulo: regex }, { conteudo: regex }, { disciplina: regex }, { tags: regex }];
+    }
+    if (disciplina) filtro.disciplina = new RegExp(`^${escaparRegex(disciplina)}$`, 'i');
+    if (tag) filtro.tags = new RegExp(`^${escaparRegex(tag)}$`, 'i');
+    if (autor) filtro.autor = autor;
+    if (visivelPara) {
+      filtro.visivelPara = filtro.visivelPara.$in.includes(visivelPara) ? visivelPara : { $in: [] };
+    }
+
+    const [posts, total] = await Promise.all([
+      Post.find(filtro)
+      .populate('autor', 'nome email role')
+      .sort({ [ordenarPor]: ordem === 'asc' ? 1 : -1 })
+      .skip((pagina - 1) * limite)
+      .limit(limite),
+      Post.countDocuments(filtro)
+    ]);
+
+    return res.json({
+      dados: posts,
+      paginacao: criarPaginacao({ pagina, limite, total, quantidade: posts.length })
+    });
   } catch (error) {
     return res.status(500).json({ mensagem: 'Erro ao listar posts.' });
   }
@@ -45,7 +68,7 @@ async function buscarPostPorId(req, res) {
 async function criarPost(req, res) {
   try {
     const post = await Post.create({
-      ...req.body,
+      ...req.validatedBody,
       autor: req.user._id
     });
 
@@ -72,7 +95,7 @@ async function atualizarPost(req, res) {
       return res.status(403).json({ mensagem: 'Você não possui permissão para alterar este post.' });
     }
 
-    const { autor, ...dadosAtualizacao } = req.body;
+    const dadosAtualizacao = req.validatedBody;
     const post = await Post.findByIdAndUpdate(req.params.id, dadosAtualizacao, {
       new: true,
       runValidators: true

@@ -36,6 +36,48 @@ Códigos usados:
 - `409`: conflito de dados;
 - `500`: erro interno inesperado.
 
+Erros de validação retornam detalhes por campo:
+
+```json
+{
+  "mensagem": "Dados inválidos.",
+  "erros": [
+    { "campo": "limite", "mensagem": "limite deve estar entre 1 e 100." }
+  ]
+}
+```
+
+## Paginação e ordenação
+
+As listagens usam os parâmetros `pagina` e `limite`. O limite padrão é `20` e o máximo é `100`. `ordem` aceita `asc` ou `desc`; os valores aceitos em `ordenarPor` dependem do recurso.
+
+Formato padrão da resposta:
+
+```json
+{
+  "dados": [],
+  "paginacao": {
+    "pagina": 1,
+    "limite": 20,
+    "total": 0,
+    "itens": 0,
+    "totalPaginas": 0
+  }
+}
+```
+
+Listagens e filtros disponíveis:
+
+| Rota | Filtros | Ordenação permitida |
+| --- | --- | --- |
+| `GET /posts` | `busca`, `disciplina`, `tag`, `autor`, `visivelPara` | `createdAt`, `titulo`, `disciplina` |
+| `GET /posts/:postId/comentarios` | — | `criadoEm` |
+| `GET /users` | `busca`, `role`, `ativo` | `createdAt`, `nome`, `email` |
+| `GET /alunos` | `busca`, `turma` | `createdAt`, `nome`, `matricula` |
+| `GET /professores` | `busca`, `materia`, `turma` | `createdAt`, `nome` |
+
+Os filtros de posts nunca ampliam a visibilidade definida pela role autenticada.
+
 ## Banco de dados e relacionamentos
 
 Coleções principais:
@@ -140,6 +182,8 @@ Body de criação/edição:
 }
 ```
 
+Resposta de `GET /posts`: envelope paginado no formato descrito acima. Os filtros podem ser combinados.
+
 ## Listar comentários
 
 ```http
@@ -157,7 +201,14 @@ Resposta `200`:
 
 ```json
 {
-  "dados": []
+  "dados": [],
+  "paginacao": {
+    "pagina": 1,
+    "limite": 20,
+    "total": 0,
+    "itens": 0,
+    "totalPaginas": 0
+  }
 }
 ```
 
@@ -266,3 +317,59 @@ Erros principais:
 - `401`: token ausente ou inválido;
 - `403`: usuário sem permissão para excluir;
 - `404`: comentário ou post relacionado não encontrado.
+
+## Domínio acadêmico
+
+Todas as rotas exigem JWT e usam validação centralizada. Listagens retornam `{ dados, paginacao }`.
+
+### Atividades e entregas
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/atividades` | Professor vê as próprias; aluno vê as publicadas da própria turma |
+| `GET` | `/atividades/:id` | Usuário com acesso à atividade |
+| `POST` | `/atividades` | Professor |
+| `PUT` | `/atividades/:id` | Professor autor |
+| `DELETE` | `/atividades/:id` | Professor autor |
+| `POST` | `/atividades/:atividadeId/entregas` | Aluno da turma, uma entrega por atividade |
+| `GET` | `/atividades/:atividadeId/entregas` | Professor autor |
+| `GET` | `/entregas/me` | Aluno autenticado |
+
+Excluir uma atividade também remove suas entregas e correções.
+
+### Correções
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `PUT` | `/entregas/:entregaId/correcao` | Professor autor da atividade |
+| `GET` | `/entregas/:entregaId/correcao` | Aluno autor da entrega ou professor autenticado |
+
+A nota aceita valores de `0` a `10`. Uma nova correção da mesma entrega atualiza a correção existente.
+
+### Presença
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/presencas` | Aluno vê as próprias; professor pode filtrar `turma` e `disciplina` |
+| `POST` | `/presencas` | Professor |
+
+O mesmo aluno, disciplina e data identificam um único registro, que pode ser atualizado por novo envio.
+
+### Boletim
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/boletins/me` | Aluno autenticado |
+| `GET` | `/boletins/alunos/:alunoId` | Professor |
+| `POST` | `/boletins/alunos/:alunoId/notas` | Professor |
+
+### Cronograma
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/cronograma` | Aluno vê a própria turma; professor vê os próprios eventos |
+| `POST` | `/cronograma` | Professor |
+| `PUT` | `/cronograma/:id` | Professor autor |
+| `DELETE` | `/cronograma/:id` | Professor autor |
+
+Tipos de evento: `aula`, `atividade`, `prova` e `evento`.
