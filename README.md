@@ -6,7 +6,29 @@ Este backend faz parte de um MVP acadêmico/hackathon. O foco atual é fornecer 
 
 > Observação: a pasta local deste repositório está nomeada como `LuminiaBack`.
 
-## Tecnologias usadas
+## SUMÁRIO
+
+1. [Apresentação](#1-apresentação)
+2. [Tecnologias utilizadas](#2-tecnologias-utilizadas)
+3. [Scripts disponíveis](#3-scripts-disponíveis)
+4. [Fluxo de desenvolvimento](#4-fluxo-de-desenvolvimento)
+5. [Instalação e configuração](#5-instalação-e-configuração)
+6. [Execução da aplicação](#6-execução-da-aplicação)
+7. [Autenticação e rotas](#7-autenticação-e-rotas)
+8. [Exemplos de requisições](#8-exemplos-de-requisições)
+9. [Testes e qualidade](#9-testes-e-qualidade)
+10. [Estrutura do projeto](#10-estrutura-do-projeto)
+11. [Integração e autorização](#11-integração-e-autorização)
+12. [Mapeamento da implantação](#12-mapeamento-da-implantação)
+13. [Limitações conhecidas](#13-limitações-conhecidas)
+14. [Planejamento](#14-planejamento)
+15. [Referências normativas](#15-referências-normativas)
+
+## 1 APRESENTAÇÃO
+
+Este documento registra os requisitos de execução, a organização técnica, os contratos principais e o estado de implantação do backend. Sua estrutura foi adaptada para Markdown com numeração progressiva de seções e organização lógica do conteúdo.
+
+## 2 TECNOLOGIAS UTILIZADAS
 
 - Node.js
 - Express
@@ -20,7 +42,7 @@ Este backend faz parte de um MVP acadêmico/hackathon. O foco atual é fornecer 
 - Docker e Docker Compose
 - GitHub Actions para CI
 
-## Scripts disponíveis
+## 3 SCRIPTS DISPONÍVEIS
 
 Scripts reais definidos no `package.json`:
 
@@ -31,7 +53,7 @@ Scripts reais definidos no `package.json`:
 | `npm run seed` | Limpa e recria dados iniciais no MongoDB. |
 | `npm test` | Executa testes com cobertura e exige mais de 90% em todas as métricas globais. |
 
-## Fluxo de branching
+## 4 FLUXO DE DESENVOLVIMENTO
 
 - Atualize `develop` e crie uma branch com o padrão `feature/nome-da-feature`:
 
@@ -56,7 +78,9 @@ git push -u origin feature/nome-da-feature
 - Os jobs de merge usam o secret `AUTO_MERGE_TOKEN`, que deve conter um Personal Access Token com acesso ao repositório e permissão para criar e gerenciar Pull Requests e workflows.
 - Cadastre o token em **Settings → Secrets and variables → Actions** com o nome exato `AUTO_MERGE_TOKEN`. Nunca registre o valor do token no repositório.
 
-## Instalação
+## 5 INSTALAÇÃO E CONFIGURAÇÃO
+
+### 5.1 Instalação das dependências
 
 ```bash
 npm install
@@ -68,7 +92,7 @@ Para instalação reproduzível em CI, o projeto possui `package-lock.json` e us
 npm ci
 ```
 
-## Configuração do `.env`
+### 5.2 Configuração das variáveis de ambiente
 
 Crie um arquivo `.env` a partir do exemplo:
 
@@ -89,7 +113,7 @@ CORS_ORIGIN=http://localhost:5173,http://localhost:5174
 
 Para uso real, troque `JWT_SECRET` por um valor seguro. A variável `CORS_ORIGIN` aceita uma lista separada por vírgulas com as origens permitidas para o frontend. Quando `CORS_ORIGIN` não estiv[...]
 
-## CORS
+### 5.3 Política de compartilhamento de recursos entre origens
 
 O CORS é configurado em `src/app.js` por variável de ambiente:
 
@@ -99,7 +123,7 @@ O CORS é configurado em `src/app.js` por variável de ambiente:
 
 A configuração permite o uso de `Authorization` e `Content-Type` em desenvolvimento local. Não há uso de cookies ou `credentials` nesta etapa; a sessão web usa Bearer Token.
 
-## Docker e MongoDB
+### 5.4 Docker e MongoDB
 
 O arquivo `docker-compose.yml` sobe um serviço MongoDB com a imagem `mongo:7`.
 
@@ -124,7 +148,7 @@ Para verificar se o container está ativo:
 docker ps
 ```
 
-## Executando a API
+## 6 EXECUÇÃO DA APLICAÇÃO
 
 Com o MongoDB ativo e o `.env` configurado:
 
@@ -159,7 +183,7 @@ Resposta esperada:
 }
 ```
 
-## Seed
+### 6.1 Carga inicial de dados
 
 Com o MongoDB ativo e o `.env` configurado:
 
@@ -185,7 +209,9 @@ O seed também cria:
 - uma atividade com entrega corrigida;
 - um registro de presença e um evento de cronograma.
 
-## Autenticação JWT
+## 7 AUTENTICAÇÃO E ROTAS
+
+### 7.1 Autenticação JWT
 
 O login retorna um token JWT. Rotas protegidas exigem o header:
 
@@ -195,15 +221,15 @@ Authorization: Bearer SEU_TOKEN
 
 O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo de expiração usa `JWT_EXPIRES_IN`, com fallback para `1d`.
 
-## Rotas disponíveis
+### 7.2 Rotas disponíveis
 
-### Geral
+#### 7.2.1 Geral
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
 | `GET` | `/` | Pública | Verifica se a API está ativa. |
 
-### Auth
+#### 7.2.2 Autenticação
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
@@ -211,14 +237,14 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | `POST` | `/auth/login` | Pública | Autentica usuário e retorna JWT. |
 | `GET` | `/auth/me` | JWT | Retorna dados básicos do usuário autenticado. |
 
-### Users
+#### 7.2.3 Usuários
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
 | `GET` | `/users` | JWT | Lista usuários. |
 | `GET` | `/users/:id` | JWT | Busca usuário por ID. |
 
-### Alunos
+#### 7.2.4 Alunos
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
@@ -229,7 +255,7 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | `PUT` | `/alunos/:id` | JWT | Professor atualiza qualquer perfil; aluno atualiza somente `nome` e `dataNascimento` do próprio perfil. |
 | `DELETE` | `/alunos/:id` | JWT + professor | Remove perfil de aluno. |
 
-### Professores
+#### 7.2.5 Professores
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
@@ -240,7 +266,7 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | `PUT` | `/professores/:id` | JWT + professor próprio | Atualiza somente o próprio perfil de professor. |
 | `DELETE` | `/professores/:id` | JWT + professor próprio | Remove somente o próprio perfil de professor. |
 
-### Turmas e disciplinas
+#### 7.2.6 Turmas e disciplinas
 
 As listagens são paginadas. Professores visualizam o catálogo completo; alunos visualizam somente a própria turma e as disciplinas ativas vinculadas a ela.
 
@@ -257,7 +283,7 @@ As listagens são paginadas. Professores visualizam o catálogo completo; alunos
 | `PUT` | `/disciplinas/:id` | JWT + professor responsável | Atualiza a disciplina própria. |
 | `DELETE` | `/disciplinas/:id` | JWT + professor responsável | Remove a disciplina própria. |
 
-### Posts
+#### 7.2.7 Publicações
 
 Todas as rotas de posts exigem JWT. Criação exige role `professor`; edição e remoção exigem role `professor` e autoria do post.
 
@@ -275,7 +301,7 @@ Visibilidade de posts:
 - `alunos`: visível apenas para alunos;
 - `professores`: visível apenas para professores.
 
-### Comentários
+#### 7.2.8 Comentários
 
 Todas as rotas de comentários exigem JWT.
 
@@ -307,9 +333,9 @@ Modelo público de comentário:
 
 `podeEditar` e `podeExcluir` são calculados pelo backend. O frontend não precisa reproduzir regras de propriedade.
 
-## Exemplos de requests
+## 8 EXEMPLOS DE REQUISIÇÕES
 
-### Login
+### 8.1 Login
 
 ```bash
 curl -X POST http://localhost:3000/auth/login \
@@ -333,21 +359,21 @@ Resposta esperada:
 }
 ```
 
-### Usuário autenticado
+### 8.2 Usuário autenticado
 
 ```bash
 curl http://localhost:3000/auth/me \
   -H "Authorization: Bearer TOKEN_JWT"
 ```
 
-### Listar posts
+### 8.3 Listagem de publicações
 
 ```bash
 curl http://localhost:3000/posts \
   -H "Authorization: Bearer TOKEN_JWT"
 ```
 
-### Criar post como professor
+### 8.4 Criação de publicação pelo professor
 
 ```bash
 curl -X POST http://localhost:3000/posts \
@@ -362,7 +388,7 @@ curl -X POST http://localhost:3000/posts \
   }'
 ```
 
-### Criar comentário
+### 8.5 Criação de comentário
 
 ```bash
 curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
@@ -371,7 +397,7 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
   -d '{ "conteudo": "Minha dúvida sobre este conteúdo." }'
 ```
 
-## Testes
+## 9 TESTES E QUALIDADE
 
 ```bash
 npm test
@@ -381,7 +407,7 @@ A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real
 
 O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer métrica global não supera 90%: statements, branches, functions ou lines. Na medição atual, todas estão acima do limite.
 
-## Estrutura de pastas
+## 10 ESTRUTURA DO PROJETO
 
 ```txt
 .
@@ -437,7 +463,9 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 └── README.md
 ```
 
-## Status da integração
+## 11 INTEGRAÇÃO E AUTORIZAÇÃO
+
+### 11.1 Estado da integração
 
 - O backend já fornece autenticação real via `POST /auth/login` e sessão via `GET /auth/me`.
 - O frontend consome `POST /auth/login`, salva o token JWT no `localStorage`, usa `GET /auth/me` para restaurar sessão e envia `Authorization: Bearer TOKEN` nas chamadas protegidas.
@@ -449,7 +477,7 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 - Os testes com MongoDB em memória possuem uma janela de inicialização explícita para evitar falhas intermitentes em ambientes de CI mais lentos.
 - O fluxo `develop` → `main` possui criação/reutilização automática de PR e habilitação de auto-merge após o atendimento das proteções configuradas no GitHub.
 
-## Matriz de autorização
+### 11.2 Matriz de autorização
 
 | Ação | Aluno | Professor |
 | --- | --- | --- |
@@ -462,53 +490,57 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 | Visualizar próprio perfil | Sim | Sim |
 | Comentar em post visível | Sim | Sim |
 
-## Status atual
+## 12 MAPEAMENTO DA IMPLANTAÇÃO
 
-Implementado:
+Os estados utilizados neste mapeamento são:
 
-- API Express com organização por rotas, controllers, models e middlewares.
-- Conexão com MongoDB via Mongoose.
-- Autenticação JWT com senha criptografada por bcrypt.
-- Models de `User`, `Aluno`, `Professor` e `Post`.
-- Model de `Comentario` relacionado a `Post` e `User`.
-- Models de `Turma` e `Disciplina`, com vínculo entre disciplinas, turmas e professor responsável.
-- Seed com usuários de teste, perfis e posts.
-- Seed com comentários de aluno e professor.
-- CRUD básico para alunos, professores e posts.
-- Edição e exclusão de posts restritas ao professor autor.
-- Rotas de comentários com autorização por propriedade.
-- Paginação padronizada nas listagens de usuários, alunos, professores, posts e comentários.
-- Filtros combináveis de busca, perfil, turma, matéria, disciplina, tag, autoria e visibilidade, conforme o recurso.
-- Validação centralizada de bodies e queries com erros estruturados por campo.
-- Cobertura automatizada global acima de 90%, protegida por limite mínimo no Jest.
-- Filtro de visibilidade para posts conforme role do usuário.
-- Autorização refinada por role e propriedade nas rotas de alunos e professores.
-- CORS configurável.
-- Workflow de CI para backend.
-- Atividades com autoria, turma, disciplina, prazo e status.
-- Entregas únicas por aluno e atividade, com acesso restrito à turma.
-- Correções com nota e feedback vinculadas à entrega.
-- Registro de presença, boletim completo e cronograma por turma.
-- Catálogo paginado de turmas e disciplinas, com filtros, propriedade e visibilidade restrita para alunos.
-- Seed com turma `1A` e disciplinas de Matemática e Tecnologia.
+- **Implantado**: disponível no backend, validado por testes automatizados e documentado;
+- **Parcialmente implantado**: possui base funcional, mas ainda depende de integração, normalização ou configuração externa;
+- **Não implantado**: não possui implementação funcional no backend.
 
-Ainda não implementado:
+| Área | Estado | Evidência e escopo atual |
+| --- | --- | --- |
+| API Express e persistência MongoDB | Implantado | Organização em rotas, controladores, modelos e middlewares, com conexão por Mongoose. |
+| Autenticação e autorização | Implantado | Registro, login, restauração de sessão, JWT, bcrypt, roles e regras de propriedade. |
+| Perfis de alunos e professores | Implantado | Consulta e manutenção de perfis conforme a role autenticada. |
+| Publicações e comentários | Implantado | CRUD, visibilidade, autoria, comentários e exclusões relacionadas. |
+| Paginação, filtros e validação | Implantado | Queries paginadas, filtros combináveis e erros estruturados por campo. |
+| Turmas e disciplinas | Implantado | Catálogo, filtros, vínculos, propriedade, visibilidade do aluno e proteção de exclusão. |
+| Atividades, entregas e correções | Implantado | Atividades por turma, entrega única, nota, feedback e autorização por autoria. |
+| Presença, boletim e cronograma | Implantado | Registro e consulta conforme aluno, professor, turma e disciplina. |
+| Seed de desenvolvimento | Implantado | Usuários, perfis, publicações, comentários, turma, disciplinas e registros acadêmicos. |
+| Testes e cobertura | Implantado | 75 testes e limite global superior a 90% para statements, branches, functions e lines. |
+| Integração acadêmica com o frontend | Parcialmente implantado | Os endpoints existem, porém as telas acadêmicas do frontend ainda utilizam dados simulados. |
+| Normalização de turma e disciplina | Parcialmente implantado | `Disciplina` referencia `Turma`; modelos anteriores ainda mantêm alguns campos de turma e disciplina como texto para compatibilidade. |
+| Automação de integração contínua | Parcialmente implantado | O workflow está configurado, mas auto-merge, proteções de branch e `AUTO_MERGE_TOKEN` dependem das configurações do GitHub. |
+| Inteligência artificial | Não implantado | Não há provedor, geração de feedback pedagógico ou testes de integração com IA. |
 
-- Feedback pedagógico gerado por IA.
-- Integração com provedores de IA.
-
-## Limitações conhecidas
+## 13 LIMITAÇÕES CONHECIDAS
 
 - `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
 - O seed apaga dados existentes antes de recriar os dados iniciais.
-- A suíte automatizada cobre os recursos implementados; integrações de IA ainda dependerão de testes próprios quando forem adicionadas.
+- A suíte automatizada cobre os principais fluxos, validações e regras de autorização dos recursos implementados, mantendo todas as métricas globais acima de 90%; integrações de IA ainda dependerão de testes próprios quando forem adicionadas.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
-## Próximos passos
+## 14 PLANEJAMENTO
 
-1. ~~Ampliar testes automatizados para autenticação, autorização, posts e perfis.~~ Concluído.
-2. ~~Ampliar e endurecer testes dos comentários já implementados.~~ Concluído.
-3. ~~Criar turmas e disciplinas.~~ Concluído.
-4. ~~Criar atividades e entregas.~~ Concluído.
-5. ~~Criar correções, presença e boletim.~~ Concluído.
-6. Integrar IA por último, após consolidar os fluxos principais.
+| Ordem | Atividade | Situação |
+| ---: | --- | --- |
+| 1 | Ampliar testes de autenticação, autorização, publicações e perfis | Concluída |
+| 2 | Ampliar os testes de comentários | Concluída |
+| 3 | Criar turmas e disciplinas | Concluída |
+| 4 | Criar atividades e entregas | Concluída |
+| 5 | Criar correções, presença e boletim | Concluída |
+| 6 | Integrar as telas acadêmicas do frontend aos endpoints existentes | Pendente |
+| 7 | Migrar campos textuais legados para referências normalizadas de turma e disciplina | Pendente |
+| 8 | Integrar inteligência artificial após a consolidação dos fluxos principais | Pendente |
+
+## 15 REFERÊNCIAS NORMATIVAS
+
+ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **ABNT NBR 6024:2012: informação e documentação — numeração progressiva das seções de um documento — apresentação**. Rio de Janeiro: ABNT, 2012.
+
+ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **ABNT NBR 6027:2012: informação e documentação — sumário — apresentação**. Rio de Janeiro: ABNT, 2012.
+
+ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **ABNT NBR 14724:2024: informação e documentação — trabalhos acadêmicos — apresentação**. Rio de Janeiro: ABNT, 2024.
+
+> Nota: este README é um documento técnico em Markdown. Por isso, aplica a organização, a hierarquia e a numeração progressiva das normas citadas, mas não reproduz requisitos gráficos próprios de documentos paginados, como margens, fonte, espaçamento e folha de rosto.
