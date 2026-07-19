@@ -33,14 +33,26 @@ Scripts reais definidos no `package.json`:
 
 ## Fluxo de branching
 
-- Crie branches `feature/*` a partir de `develop`.
-- Abra o Pull Request da feature para `develop`.
-- Cada push em `develop` cria ou reutiliza um Pull Request de `develop` para `main` e habilita o auto-merge.
+- Atualize `develop` e crie uma branch com o padrão `feature/nome-da-feature`:
+
+```bash
+git switch develop
+git pull origin develop
+git switch -c feature/nome-da-feature
+```
+
+- Após concluir a alteração, envie a feature e abra um Pull Request para `develop`:
+
+```bash
+git push -u origin feature/nome-da-feature
+```
+
+- Quando os checks `build`, `test` e `api` passarem, o workflow habilita o auto-merge da feature em `develop`.
+- O push resultante em `develop` executa uma única validação e, se ela passar, cria ou reutiliza o Pull Request para `main` e habilita seu auto-merge.
 - A branch `main` deve exigir os checks `build` e `test` e uma aprovação de `@RobinMagnus`.
 - O arquivo `.github/CODEOWNERS` define `@RobinMagnus` como responsável pelo código.
-- O workflow usa `GITHUB_TOKEN` por padrão e aceita o secret `AUTO_MERGE_TOKEN` como alternativa quando forem necessárias permissões adicionais.
-
-Para usar o fallback, crie o secret `AUTO_MERGE_TOKEN` nas configurações de Actions do repositório. Nunca registre o token no código ou no histórico do Git.
+- O workflow usa exclusivamente o `github.token` temporário fornecido pelo GitHub Actions, com permissões de escrita para `contents` e `pull-requests` declaradas no próprio arquivo.
+- Não é necessário criar ou manter o secret `AUTO_MERGE_TOKEN` para esse fluxo.
 
 ## Instalação
 
@@ -401,7 +413,7 @@ A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banc
 - O frontend consome `GET /alunos/me` e `GET /professores/me` para perfis básicos reais.
 - O frontend consome comentários reais com `GET /posts/:postId/comentarios`, `POST /posts/:postId/comentarios`, `PUT /comentarios/:id` e `DELETE /comentarios/:id`.
 - O CORS está configurável por `CORS_ORIGIN` e, por padrão, permite `http://localhost:5173` e `http://localhost:5174`.
-- O CI do backend publica os checks `build`, `test` e `api`. Ele valida a sintaxe JavaScript, executa a suíte automatizada e testa a API com MongoDB em service container.
+- Um único workflow de CI publica os checks `build`, `test` e `api`, controla os merges automáticos e evita execuções duplicadas para `main` e `develop`.
 - Os testes com MongoDB em memória possuem uma janela de inicialização explícita para evitar falhas intermitentes em ambientes de CI mais lentos.
 - O fluxo `develop` → `main` possui criação/reutilização automática de PR e habilitação de auto-merge após o atendimento das proteções configuradas no GitHub.
 
@@ -461,61 +473,3 @@ Ainda não implementado:
 4. Criar atividades e entregas.
 5. Criar correções, presença e boletim.
 6. Integrar IA por último, após consolidar os fluxos principais.
-
-## Fluxo de branching e contribuições
-
-- Foi criada a branch `develop`: https://github.com/RobinMagnus/LuminiaBackend/tree/develop
-
-- Fluxo recomendado para contribuições e features:
-  1. Crie sua branch a partir de `develop` com o prefixo `feature`, por exemplo: `feature/minha-nova-funcionalidade`.
-  2. Trabalhe e faça commits na sua branch `feature/*`.
-  3. Abra um Pull Request da sua branch `feature/*` para `develop`.
-  4. Quando a feature estiver testada e integrada em `develop`, abra um Pull Request de `develop` para `main` para a release.
-
-- Regra para a branch `main` (recomendada): proteger a branch para impedir merges diretos até que todos os checks e aprovações sejam atendidos. Recomenda-se exigir os checks `build` e `test` e 1 aprovação antes de permitir merge.
-
-- Como aplicar a proteção (via interface):
-  1. Vá em Settings → Branches → Add rule.
-  2. Em Branch name pattern use `main`.
-  3. Marque "Require pull request reviews before merging" (requer 1 aprovação).
-  4. Marque "Require status checks to pass before merging" e selecione os checks `build` e `test`.
-  5. Marque "Require branches to be up to date before merging" (opcional).
-  6. Marque "Include administrators" se quiser que administradores também sigam a regra.
-  7. Salve a regra.
-
-- Como aplicar a proteção (via API):
-
-```bash
-# Substitua OWNER, REPO e GITHUB_TOKEN
-curl -X PUT \
-  -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer GITHUB_TOKEN" \
-  https://api.github.com/repos/OWNER/REPO/branches/main/protection \
-  -d '{
-    "required_status_checks": {
-      "strict": true,
-      "contexts": ["build","test"]
-    },
-    "enforce_admins": true,
-    "required_pull_request_reviews": {
-      "dismiss_stale_reviews": false,
-      "require_code_owner_reviews": false,
-      "required_approving_review_count": 1
-    },
-    "restrictions": null
-  }'
-```
-
-Observações importantes:
-- O token usado no comando acima precisa do escopo `repo` (para repositórios privados) ou `public_repo` (para públicos) e permissão para administrar branch protection.
-- Se você prefere que apenas usuários específicos possam dar merge, altere o campo `restrictions` via API para limitar quem pode push/merge.
-
-## Notas finais
-
-- Criei a branch `develop` para você.
-- Atualizei este README com o fluxo de branching recomendado e instruções para proteger `main` exigindo `build` e `test` e 1 aprovação.
-
-Se quiser, eu posso:
-- Executar o comando API para aplicar a proteção automaticamente (preciso que você me forneça um token com permissão `repo` ou me autorize a usar credenciais — se preferir, eu mando o comando pronto para você executar localmente).
-- Criar um arquivo `.github/CODEOWNERS` para garantir que suas aprovações sejam solicitadas automaticamente (posso criar um entry apontando para `@RobinMagnus`).
-
