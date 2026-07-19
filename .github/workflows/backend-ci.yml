@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: backend-ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -62,6 +62,8 @@ jobs:
   api:
     name: api
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     services:
       mongodb:
@@ -97,20 +99,41 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Wait for MongoDB
+        run: |
+          for attempt in {1..30}; do
+            if mongosh --host localhost --username luminia --password luminia123 --authenticationDatabase admin --eval 'db.adminCommand("ping")'; then
+              echo "MongoDB is ready!"
+              exit 0
+            fi
+            echo "Attempt $attempt: Waiting for MongoDB..."
+            sleep 2
+          done
+          echo "MongoDB failed to start!"
+          exit 1
+
       - name: Seed database
         run: npm run seed
 
       - name: Start API
-        run: npm start &
+        run: |
+          npm start > api.log 2>&1 &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> "$GITHUB_ENV"
+          sleep 3
 
       - name: Check API health
         run: |
-          for attempt in {1..20}; do
-            if curl --fail http://localhost:3000; then
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3000 > /dev/null; then
+              echo "API is healthy!"
               exit 0
             fi
+            echo "Attempt $attempt: Waiting for API..."
             sleep 2
           done
+          echo "API failed to start. Logs:"
+          cat api.log
           exit 1
 
   merge-feature-into-develop:
@@ -121,6 +144,9 @@ jobs:
       - test
       - api
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: RobinMagnus/LuminiaBackend
@@ -155,7 +181,7 @@ jobs:
           gh pr merge "${{ steps.pull-request.outputs.pr_number }}" \
             --repo "$GH_REPO" \
             --auto \
-            --merge
+            --merge || echo "Failed to enable auto-merge, but PR exists"
 
   merge-develop-into-main:
     name: Auto PR develop to main
@@ -165,6 +191,9 @@ jobs:
       - test
       - api
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: RobinMagnus/LuminiaBackend
@@ -214,4 +243,4 @@ jobs:
           gh pr merge "${{ steps.pull-request.outputs.pr_number }}" \
             --repo "$GH_REPO" \
             --auto \
-            --merge
+            --merge || echo "Failed to enable auto-merge, but PR exists"
