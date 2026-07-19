@@ -1,1 +1,4 @@
+# CODEOWNERS - direciona solicitações de revisão para o proprietário
+# Exemplo: atribui TODO o repositório para o usuário @RobinMagnus
+
 * @RobinMagnus
