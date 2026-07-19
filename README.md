@@ -33,9 +33,22 @@ Scripts reais definidos no `package.json`:
 
 ## Fluxo de branching
 
-- Crie branches `feature/*` a partir de `develop`.
-- Abra o Pull Request da feature para `develop`.
-- Cada push em `develop` cria ou reutiliza um Pull Request de `develop` para `main` e habilita o auto-merge.
+- Atualize `develop` e crie uma branch com o padrão `feature/nome-da-feature`:
+
+```bash
+git switch develop
+git pull origin develop
+git switch -c feature/nome-da-feature
+```
+
+- Após concluir a alteração, envie a feature e abra um Pull Request para `develop`:
+
+```bash
+git push -u origin feature/nome-da-feature
+```
+
+- Quando os checks `build`, `test` e `api` passarem, o workflow habilita o auto-merge da feature em `develop`.
+- O push resultante em `develop` executa uma única validação e, se ela passar, cria ou reutiliza o Pull Request para `main` e habilita seu auto-merge.
 - A branch `main` deve exigir os checks `build` e `test` e uma aprovação de `@RobinMagnus`.
 - O arquivo `.github/CODEOWNERS` define `@RobinMagnus` como responsável pelo código.
 - O workflow usa exclusivamente o `github.token` temporário fornecido pelo GitHub Actions, com permissões de escrita para `contents` e `pull-requests` declaradas no próprio arquivo.
@@ -400,7 +413,7 @@ A suíte atual usa Jest, Supertest e MongoDB Memory Server, sem depender do banc
 - O frontend consome `GET /alunos/me` e `GET /professores/me` para perfis básicos reais.
 - O frontend consome comentários reais com `GET /posts/:postId/comentarios`, `POST /posts/:postId/comentarios`, `PUT /comentarios/:id` e `DELETE /comentarios/:id`.
 - O CORS está configurável por `CORS_ORIGIN` e, por padrão, permite `http://localhost:5173` e `http://localhost:5174`.
-- O CI do backend publica os checks `build`, `test` e `api`. Ele valida a sintaxe JavaScript, executa a suíte automatizada e testa a API com MongoDB em service container.
+- Um único workflow de CI publica os checks `build`, `test` e `api`, controla os merges automáticos e evita execuções duplicadas para `main` e `develop`.
 - Os testes com MongoDB em memória possuem uma janela de inicialização explícita para evitar falhas intermitentes em ambientes de CI mais lentos.
 - O fluxo `develop` → `main` possui criação/reutilização automática de PR e habilitação de auto-merge após o atendimento das proteções configuradas no GitHub.
 
