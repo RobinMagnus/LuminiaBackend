@@ -41,14 +41,16 @@ git pull origin develop
 git switch -c feature/nome-da-feature
 ```
 
-- Após concluir a alteração, envie a feature e abra um Pull Request para `develop`:
+- Após concluir a alteração, envie a feature:
 
 ```bash
 git push -u origin feature/nome-da-feature
 ```
 
-- Quando os checks `build`, `test` e `api` passarem, o workflow habilita o auto-merge da feature em `develop`.
+- O push em `feature/**` executa os checks `build`, `test` e `api` uma única vez.
+- Quando os checks passarem, o workflow cria ou reutiliza automaticamente o Pull Request da feature para `develop` e habilita o auto-merge.
 - O push resultante em `develop` executa uma única validação e, se ela passar, cria ou reutiliza o Pull Request para `main` e habilita seu auto-merge.
+- O Pull Request de release solicita automaticamente a revisão de `@RobinMagnus`; o merge aguarda a aprovação e as proteções da `main`.
 - A branch `main` deve exigir os checks `build` e `test` e uma aprovação de `@RobinMagnus`.
 - O arquivo `.github/CODEOWNERS` define `@RobinMagnus` como responsável pelo código.
 - O workflow usa exclusivamente o `github.token` temporário fornecido pelo GitHub Actions, com permissões de escrita para `contents` e `pull-requests` declaradas no próprio arquivo.
