@@ -51,6 +51,18 @@ function listaTextos(valor, campo, erros) {
   return valor.map(item => item.trim()).filter(Boolean);
 }
 
+function listaIds(valor, campo, erros, obrigatorio = false) {
+  if (valor === undefined) {
+    if (obrigatorio) erros.push(erro(campo, `${campo} é obrigatório.`));
+    return undefined;
+  }
+  if (!Array.isArray(valor) || valor.length === 0 || valor.some(item => !mongoose.isValidObjectId(item))) {
+    erros.push(erro(campo, `${campo} deve ser uma lista de IDs válidos.`));
+    return undefined;
+  }
+  return [...new Set(valor.map(String))];
+}
+
 function numeroInteiro(valor, campo, erros, padrao, min, max) {
   if (valor === undefined || valor === '') return padrao;
   if (!/^\d+$/.test(String(valor))) {
@@ -82,6 +94,23 @@ function numero(valor, campo, erros, min, max, obrigatorio = false) {
     erros.push(erro(campo, `${campo} deve estar entre ${min} e ${max}.`));
   }
   return normalizado;
+}
+
+function inteiro(valor, campo, erros, min, max, obrigatorio = false) {
+  const normalizado = numero(valor, campo, erros, min, max, obrigatorio);
+  if (normalizado !== undefined && !Number.isInteger(normalizado)) {
+    erros.push(erro(campo, `${campo} deve ser um número inteiro.`));
+  }
+  return normalizado;
+}
+
+function booleano(valor, campo, erros) {
+  if (valor === undefined) return undefined;
+  if (typeof valor !== 'boolean') {
+    erros.push(erro(campo, `${campo} deve ser booleano.`));
+    return undefined;
+  }
+  return valor;
 }
 
 function responder(erros, res, dados, destino) {
@@ -253,6 +282,41 @@ const validarQueryAcademica = validarQuery((query, erros) => ({
   status: texto(query.status, 'status', erros, { max: 30 })
 }));
 
+const validarTurma = validarBody((body, erros, req) => ({
+  codigo: texto(body.codigo, 'codigo', erros, { obrigatorio: req.method === 'POST', min: 2, max: 30 })?.toUpperCase(),
+  nome: texto(body.nome, 'nome', erros, { obrigatorio: req.method === 'POST', min: 2, max: 120 }),
+  anoLetivo: inteiro(body.anoLetivo, 'anoLetivo', erros, 2000, 2100, req.method === 'POST'),
+  turno: enumeracao(body.turno, 'turno', ['manha', 'tarde', 'noite', 'integral'], erros, req.method === 'POST'),
+  descricao: texto(body.descricao, 'descricao', erros, { max: 1000 }),
+  ativa: booleano(body.ativa, 'ativa', erros)
+}));
+
+const validarDisciplina = validarBody((body, erros, req) => ({
+  codigo: texto(body.codigo, 'codigo', erros, { obrigatorio: req.method === 'POST', min: 2, max: 30 })?.toUpperCase(),
+  nome: texto(body.nome, 'nome', erros, { obrigatorio: req.method === 'POST', min: 2, max: 120 }),
+  descricao: texto(body.descricao, 'descricao', erros, { max: 2000 }),
+  cargaHoraria: inteiro(body.cargaHoraria, 'cargaHoraria', erros, 1, 10000, req.method === 'POST'),
+  turmaIds: listaIds(body.turmaIds, 'turmaIds', erros, req.method === 'POST'),
+  ativa: booleano(body.ativa, 'ativa', erros)
+}));
+
+const validarQueryTurmas = validarQuery((query, erros) => ({
+  ...paginacao(query, erros, ['createdAt', 'codigo', 'nome', 'anoLetivo']),
+  busca: texto(query.busca, 'busca', erros, { max: 100 }),
+  turno: enumeracao(query.turno, 'turno', ['manha', 'tarde', 'noite', 'integral'], erros),
+  anoLetivo: query.anoLetivo === undefined
+    ? undefined
+    : inteiro(query.anoLetivo, 'anoLetivo', erros, 2000, 2100),
+  ativa: enumeracao(query.ativa, 'ativa', ['true', 'false'], erros)
+}));
+
+const validarQueryDisciplinas = validarQuery((query, erros) => ({
+  ...paginacao(query, erros, ['createdAt', 'codigo', 'nome', 'cargaHoraria']),
+  busca: texto(query.busca, 'busca', erros, { max: 100 }),
+  turmaId: objectId(query.turmaId, 'turmaId', erros),
+  ativa: enumeracao(query.ativa, 'ativa', ['true', 'false'], erros)
+}));
+
 module.exports = {
   validarRegistro,
   validarLogin,
@@ -271,5 +335,9 @@ module.exports = {
   validarPresenca,
   validarBoletim,
   validarEvento,
-  validarQueryAcademica
+  validarQueryAcademica,
+  validarTurma,
+  validarDisciplina,
+  validarQueryTurmas,
+  validarQueryDisciplinas
 };

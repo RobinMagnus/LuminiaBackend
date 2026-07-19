@@ -75,6 +75,8 @@ Listagens e filtros disponíveis:
 | `GET /users` | `busca`, `role`, `ativo` | `createdAt`, `nome`, `email` |
 | `GET /alunos` | `busca`, `turma` | `createdAt`, `nome`, `matricula` |
 | `GET /professores` | `busca`, `materia`, `turma` | `createdAt`, `nome` |
+| `GET /turmas` | `busca`, `turno`, `anoLetivo`, `ativa` | `createdAt`, `codigo`, `nome`, `anoLetivo` |
+| `GET /disciplinas` | `busca`, `turmaId`, `ativa` | `createdAt`, `codigo`, `nome`, `cargaHoraria` |
 
 Os filtros de posts nunca ampliam a visibilidade definida pela role autenticada.
 
@@ -87,6 +89,8 @@ Coleções principais:
 - `PROFESSORES`
 - `POSTS`
 - `COMENTARIOS`
+- `TURMAS`
+- `DISCIPLINAS`
 
 Relacionamentos:
 
@@ -96,6 +100,9 @@ USERS 1 ─── 0..1 PROFESSORES
 PROFESSORES/USERS 1 ─── N POSTS
 USERS 1 ─── N COMENTARIOS
 POSTS 1 ─── N COMENTARIOS
+USERS/PROFESSORES 1 ─── N TURMAS
+USERS/PROFESSORES 1 ─── N DISCIPLINAS
+TURMAS N ─── N DISCIPLINAS
 ```
 
 Observações:
@@ -321,6 +328,56 @@ Erros principais:
 ## Domínio acadêmico
 
 Todas as rotas exigem JWT e usam validação centralizada. Listagens retornam `{ dados, paginacao }`.
+
+### Turmas
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/turmas` | Professor lista o catálogo; aluno lista somente a turma do próprio perfil |
+| `GET` | `/turmas/:id` | Professor ou aluno pertencente à turma |
+| `POST` | `/turmas` | Professor |
+| `PUT` | `/turmas/:id` | Professor responsável |
+| `DELETE` | `/turmas/:id` | Professor responsável, se não houver alunos ou disciplinas vinculadas |
+
+Body de criação:
+
+```json
+{
+  "codigo": "1A",
+  "nome": "Turma 1A",
+  "anoLetivo": 2027,
+  "turno": "manha",
+  "descricao": "Turma do período matutino.",
+  "ativa": true
+}
+```
+
+`codigo` é único e normalizado para letras maiúsculas. `turno` aceita `manha`, `tarde`, `noite` ou `integral`.
+
+### Disciplinas
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/disciplinas` | Professor lista o catálogo; aluno lista somente disciplinas ativas da própria turma |
+| `GET` | `/disciplinas/:id` | Professor ou aluno de turma vinculada à disciplina ativa |
+| `POST` | `/disciplinas` | Professor |
+| `PUT` | `/disciplinas/:id` | Professor responsável |
+| `DELETE` | `/disciplinas/:id` | Professor responsável |
+
+Body de criação:
+
+```json
+{
+  "codigo": "MAT",
+  "nome": "Matemática",
+  "descricao": "Fundamentos e resolução de problemas.",
+  "cargaHoraria": 80,
+  "turmaIds": ["ID_DA_TURMA"],
+  "ativa": true
+}
+```
+
+Todas as IDs de `turmaIds` devem apontar para turmas existentes. IDs repetidas são normalizadas para um único vínculo.
 
 ### Atividades e entregas
 
