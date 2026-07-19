@@ -7,6 +7,11 @@ const alunoRoutes = require('./routes/alunoRoutes');
 const professorRoutes = require('./routes/professorRoutes');
 const postRoutes = require('./routes/postRoutes');
 const comentarioRoutes = require('./routes/comentarioRoutes');
+const atividadeRoutes = require('./routes/atividadeRoutes');
+const entregaRoutes = require('./routes/entregaRoutes');
+const presencaRoutes = require('./routes/presencaRoutes');
+const boletimRoutes = require('./routes/boletimRoutes');
+const cronogramaRoutes = require('./routes/cronogramaRoutes');
 
 const app = express();
 
@@ -39,6 +44,11 @@ app.use('/alunos', alunoRoutes);
 app.use('/professores', professorRoutes);
 app.use('/posts', postRoutes);
 app.use('/comentarios', comentarioRoutes);
+app.use('/atividades', atividadeRoutes);
+app.use('/entregas', entregaRoutes);
+app.use('/presencas', presencaRoutes);
+app.use('/boletins', boletimRoutes);
+app.use('/cronograma', cronogramaRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ mensagem: 'Rota não encontrada.' });

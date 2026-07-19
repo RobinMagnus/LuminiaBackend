@@ -317,3 +317,59 @@ Erros principais:
 - `401`: token ausente ou inválido;
 - `403`: usuário sem permissão para excluir;
 - `404`: comentário ou post relacionado não encontrado.
+
+## Domínio acadêmico
+
+Todas as rotas exigem JWT e usam validação centralizada. Listagens retornam `{ dados, paginacao }`.
+
+### Atividades e entregas
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/atividades` | Professor vê as próprias; aluno vê as publicadas da própria turma |
+| `GET` | `/atividades/:id` | Usuário com acesso à atividade |
+| `POST` | `/atividades` | Professor |
+| `PUT` | `/atividades/:id` | Professor autor |
+| `DELETE` | `/atividades/:id` | Professor autor |
+| `POST` | `/atividades/:atividadeId/entregas` | Aluno da turma, uma entrega por atividade |
+| `GET` | `/atividades/:atividadeId/entregas` | Professor autor |
+| `GET` | `/entregas/me` | Aluno autenticado |
+
+Excluir uma atividade também remove suas entregas e correções.
+
+### Correções
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `PUT` | `/entregas/:entregaId/correcao` | Professor autor da atividade |
+| `GET` | `/entregas/:entregaId/correcao` | Aluno autor da entrega ou professor autenticado |
+
+A nota aceita valores de `0` a `10`. Uma nova correção da mesma entrega atualiza a correção existente.
+
+### Presença
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/presencas` | Aluno vê as próprias; professor pode filtrar `turma` e `disciplina` |
+| `POST` | `/presencas` | Professor |
+
+O mesmo aluno, disciplina e data identificam um único registro, que pode ser atualizado por novo envio.
+
+### Boletim
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/boletins/me` | Aluno autenticado |
+| `GET` | `/boletins/alunos/:alunoId` | Professor |
+| `POST` | `/boletins/alunos/:alunoId/notas` | Professor |
+
+### Cronograma
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| `GET` | `/cronograma` | Aluno vê a própria turma; professor vê os próprios eventos |
+| `POST` | `/cronograma` | Professor |
+| `PUT` | `/cronograma/:id` | Professor autor |
+| `DELETE` | `/cronograma/:id` | Professor autor |
+
+Tipos de evento: `aula`, `atividade`, `prova` e `evento`.

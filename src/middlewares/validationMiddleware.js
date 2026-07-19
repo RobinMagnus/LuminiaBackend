@@ -62,6 +62,28 @@ function numeroInteiro(valor, campo, erros, padrao, min, max) {
   return numero;
 }
 
+function data(valor, campo, erros, obrigatorio = false) {
+  if (!valor) {
+    if (obrigatorio) erros.push(erro(campo, `${campo} é obrigatório.`));
+    return undefined;
+  }
+  const normalizada = new Date(valor);
+  if (Number.isNaN(normalizada.getTime())) erros.push(erro(campo, `${campo} deve ser uma data válida.`));
+  return normalizada;
+}
+
+function numero(valor, campo, erros, min, max, obrigatorio = false) {
+  if (valor === undefined || valor === null || valor === '') {
+    if (obrigatorio) erros.push(erro(campo, `${campo} é obrigatório.`));
+    return undefined;
+  }
+  const normalizado = Number(valor);
+  if (!Number.isFinite(normalizado) || normalizado < min || normalizado > max) {
+    erros.push(erro(campo, `${campo} deve estar entre ${min} e ${max}.`));
+  }
+  return normalizado;
+}
+
 function responder(erros, res, dados, destino) {
   if (erros.length) return res.status(400).json({ mensagem: 'Dados inválidos.', erros });
   return dados(destino);
@@ -178,6 +200,59 @@ const validarQueryProfessores = validarQuery((query, erros) => ({
   turma: texto(query.turma, 'turma', erros, { max: 80 })
 }));
 
+const validarAtividade = validarBody((body, erros, req) => ({
+  titulo: texto(body.titulo, 'titulo', erros, { obrigatorio: req.method === 'POST', min: 3, max: 180 }),
+  enunciado: texto(body.enunciado, 'enunciado', erros, { obrigatorio: req.method === 'POST', max: 20000 }),
+  disciplina: texto(body.disciplina, 'disciplina', erros, { obrigatorio: req.method === 'POST', max: 100 }),
+  turma: texto(body.turma, 'turma', erros, { obrigatorio: req.method === 'POST', max: 80 }),
+  prazo: data(body.prazo, 'prazo', erros, req.method === 'POST'),
+  status: enumeracao(body.status, 'status', ['rascunho', 'publicada', 'encerrada'], erros)
+}));
+
+const validarEntrega = validarBody((body, erros) => ({
+  resposta: texto(body.resposta, 'resposta', erros, { obrigatorio: true, max: 20000 })
+}));
+
+const validarCorrecao = validarBody((body, erros) => ({
+  nota: numero(body.nota, 'nota', erros, 0, 10, true),
+  feedback: texto(body.feedback, 'feedback', erros, { obrigatorio: true, max: 5000 })
+}));
+
+const validarPresenca = validarBody((body, erros) => ({
+  alunoId: objectId(body.alunoId, 'alunoId', erros, true),
+  turma: texto(body.turma, 'turma', erros, { obrigatorio: true, max: 80 }),
+  disciplina: texto(body.disciplina, 'disciplina', erros, { obrigatorio: true, max: 100 }),
+  data: data(body.data, 'data', erros, true),
+  presente: typeof body.presente === 'boolean'
+    ? body.presente
+    : (erros.push(erro('presente', 'presente deve ser booleano.')), undefined),
+  observacao: texto(body.observacao, 'observacao', erros, { max: 500 })
+}));
+
+const validarBoletim = validarBody((body, erros) => ({
+  disciplina: texto(body.disciplina, 'disciplina', erros, { obrigatorio: true, max: 100 }),
+  nota: numero(body.nota, 'nota', erros, 0, 10, true),
+  periodo: texto(body.periodo, 'periodo', erros, { obrigatorio: true, max: 80 }),
+  observacao: texto(body.observacao, 'observacao', erros, { max: 500 })
+}));
+
+const validarEvento = validarBody((body, erros, req) => ({
+  titulo: texto(body.titulo, 'titulo', erros, { obrigatorio: req.method === 'POST', min: 3, max: 180 }),
+  descricao: texto(body.descricao, 'descricao', erros, { max: 2000 }),
+  turma: texto(body.turma, 'turma', erros, { obrigatorio: req.method === 'POST', max: 80 }),
+  disciplina: texto(body.disciplina, 'disciplina', erros, { max: 100 }),
+  tipo: enumeracao(body.tipo, 'tipo', ['aula', 'atividade', 'prova', 'evento'], erros, req.method === 'POST'),
+  inicio: data(body.inicio, 'inicio', erros, req.method === 'POST'),
+  fim: data(body.fim, 'fim', erros)
+}));
+
+const validarQueryAcademica = validarQuery((query, erros) => ({
+  ...paginacao(query, erros, ['createdAt', 'prazo', 'inicio', 'data']),
+  turma: texto(query.turma, 'turma', erros, { max: 80 }),
+  disciplina: texto(query.disciplina, 'disciplina', erros, { max: 100 }),
+  status: texto(query.status, 'status', erros, { max: 30 })
+}));
+
 module.exports = {
   validarRegistro,
   validarLogin,
@@ -189,5 +264,12 @@ module.exports = {
   validarQueryComentarios,
   validarQueryUsers,
   validarQueryAlunos,
-  validarQueryProfessores
+  validarQueryProfessores,
+  validarAtividade,
+  validarEntrega,
+  validarCorrecao,
+  validarPresenca,
+  validarBoletim,
+  validarEvento,
+  validarQueryAcademica
 };
