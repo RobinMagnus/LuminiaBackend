@@ -106,6 +106,26 @@ afterAll(async () => {
 });
 
 describe('integração de autenticação, perfis e posts', () => {
+  test('health check, rota inexistente e política CORS retornam respostas controladas', async () => {
+    const health = await request(app).get('/');
+    const rotaInexistente = await request(app).get('/rota-inexistente');
+    const origemPermitida = await request(app)
+      .get('/')
+      .set('Origin', 'http://localhost:5173');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const origemBloqueada = await request(app)
+      .get('/')
+      .set('Origin', 'https://origem-nao-permitida.example');
+    consoleError.mockRestore();
+
+    expect(health.status).toBe(200);
+    expect(health.body.versao).toBe('1.0.0');
+    expect(rotaInexistente.status).toBe(404);
+    expect(origemPermitida.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(origemBloqueada.status).toBe(500);
+    expect(origemBloqueada.body.mensagem).toBe('Origem não permitida pelo CORS.');
+  });
+
   test('cadastro valida campos obrigatórios, role e email duplicado', async () => {
     const semCampos = await request(app)
       .post('/auth/register')
@@ -427,5 +447,181 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(autorEdita.body.post.titulo).toBe('Post editado');
     expect(outroExclui.status).toBe(403);
     expect(autorExclui.status).toBe(200);
+  });
+
+  test('usuários autenticados listam e consultam usuários sem exposição de senha', async () => {
+    const lista = await request(app)
+      .get('/users')
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const detalhe = await request(app)
+      .get(`/users/${professorUser._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const inexistente = await request(app)
+      .get(`/users/${new mongoose.Types.ObjectId()}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const idInvalido = await request(app)
+      .get('/users/id-invalido')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(3);
+    expect(lista.body.every(user => user.senha === undefined)).toBe(true);
+    expect(detalhe.status).toBe(200);
+    expect(detalhe.body.email).toBe('professor@luminia.com');
+    expect(inexistente.status).toBe(404);
+    expect(idInvalido.status).toBe(400);
+  });
+
+  test('professores autenticados podem listar e consultar perfis', async () => {
+    const perfilProfessor = await Professor.findOne({ userId: professorUser._id });
+    const lista = await request(app)
+      .get('/professores')
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const detalhe = await request(app)
+      .get(`/professores/${perfilProfessor._id}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const inexistente = await request(app)
+      .get(`/professores/${new mongoose.Types.ObjectId()}`)
+      .set('Authorization', `Bearer ${alunoToken}`);
+    const idInvalido = await request(app)
+      .get('/professores/id-invalido')
+      .set('Authorization', `Bearer ${alunoToken}`);
+
+    expect(lista.status).toBe(200);
+    expect(lista.body).toHaveLength(2);
+    expect(detalhe.status).toBe(200);
+    expect(detalhe.body.userId.email).toBe('professor@luminia.com');
+    expect(inexistente.status).toBe(404);
+    expect(idInvalido.status).toBe(400);
+  });
+
+  test('criação de professor valida vínculo, role, existência e duplicidade', async () => {
+    const novoProfessorUser = await User.create({
+      nome: 'Professor sem perfil',
+      email: 'semperfilprof@luminia.com',
+      senha: '123456',
+      role: 'professor'
+    });
+
+    const semVinculo = await request(app)
+      .post('/professores')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ nome: 'Sem vínculo' });
+    const usuarioInexistente = await request(app)
+      .post('/professores')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: new mongoose.Types.ObjectId(), nome: 'Inexistente' });
+    const roleIncorreta = await request(app)
+      .post('/professores')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: alunoUser._id, nome: 'Aluno' });
+    const criado = await request(app)
+      .post('/professores')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: novoProfessorUser._id, nome: 'Professor sem perfil' });
+    const duplicado = await request(app)
+      .post('/professores')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: novoProfessorUser._id, nome: 'Duplicado' });
+
+    expect(semVinculo.status).toBe(400);
+    expect(usuarioInexistente.status).toBe(404);
+    expect(roleIncorreta.status).toBe(400);
+    expect(criado.status).toBe(201);
+    expect(duplicado.status).toBe(409);
+  });
+
+  test('professor remove o próprio perfil e recebe 404 para perfil inexistente', async () => {
+    const perfilProfessor = await Professor.findOne({ userId: professorUser._id });
+    const removido = await request(app)
+      .delete(`/professores/${perfilProfessor._id}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+    const novamente = await request(app)
+      .delete(`/professores/${perfilProfessor._id}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+
+    expect(removido.status).toBe(200);
+    expect(novamente.status).toBe(404);
+  });
+
+  test('criação de aluno valida vínculo, existência e role', async () => {
+    const semVinculo = await request(app)
+      .post('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ nome: 'Sem vínculo', matricula: 'SEM-VINCULO' });
+    const usuarioInexistente = await request(app)
+      .post('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: new mongoose.Types.ObjectId(), nome: 'Inexistente', matricula: 'INEXISTENTE' });
+    const roleIncorreta = await request(app)
+      .post('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ userId: professorUser._id, nome: 'Professor', matricula: 'ROLE-ERRADA' });
+
+    expect(semVinculo.status).toBe(400);
+    expect(usuarioInexistente.status).toBe(404);
+    expect(roleIncorreta.status).toBe(400);
+  });
+
+  test('professor lista, atualiza e remove alunos, incluindo recursos inexistentes', async () => {
+    const perfilAluno = await Aluno.findOne({ userId: alunoUser._id });
+    const lista = await request(app)
+      .get('/alunos')
+      .set('Authorization', `Bearer ${professorToken}`);
+    const detalhe = await request(app)
+      .get(`/alunos/${perfilAluno._id}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+    const atualizado = await request(app)
+      .put(`/alunos/${perfilAluno._id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ turma: '3B' });
+    const removido = await request(app)
+      .delete(`/alunos/${perfilAluno._id}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+    const atualizarInexistente = await request(app)
+      .put(`/alunos/${perfilAluno._id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ turma: '4A' });
+    const removerInexistente = await request(app)
+      .delete(`/alunos/${perfilAluno._id}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+    const idInvalido = await request(app)
+      .get('/alunos/id-invalido')
+      .set('Authorization', `Bearer ${professorToken}`);
+
+    expect(lista.status).toBe(200);
+    expect(detalhe.status).toBe(200);
+    expect(atualizado.body.aluno.turma).toBe('3B');
+    expect(removido.status).toBe(200);
+    expect(atualizarInexistente.status).toBe(404);
+    expect(removerInexistente.status).toBe(404);
+    expect(idInvalido.status).toBe(400);
+  });
+
+  test('posts inexistentes retornam 404 em consulta, edição e exclusão', async () => {
+    const postId = new mongoose.Types.ObjectId();
+    const detalhe = await request(app)
+      .get(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+    const edicao = await request(app)
+      .put(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ titulo: 'Inexistente' });
+    const exclusao = await request(app)
+      .delete(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${professorToken}`);
+    const edicaoIdInvalido = await request(app)
+      .put('/posts/id-invalido')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ titulo: 'Inválido' });
+    const exclusaoIdInvalido = await request(app)
+      .delete('/posts/id-invalido')
+      .set('Authorization', `Bearer ${professorToken}`);
+
+    expect(detalhe.status).toBe(404);
+    expect(edicao.status).toBe(404);
+    expect(exclusao.status).toBe(404);
+    expect(edicaoIdInvalido.status).toBe(400);
+    expect(exclusaoIdInvalido.status).toBe(400);
   });
 });
