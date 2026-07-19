@@ -38,9 +38,8 @@ Scripts reais definidos no `package.json`:
 - Cada push em `develop` cria ou reutiliza um Pull Request de `develop` para `main` e habilita o auto-merge.
 - A branch `main` deve exigir os checks `build` e `test` e uma aprovação de `@RobinMagnus`.
 - O arquivo `.github/CODEOWNERS` define `@RobinMagnus` como responsável pelo código.
-- O workflow usa `GITHUB_TOKEN` por padrão e aceita o secret `AUTO_MERGE_TOKEN` como alternativa quando forem necessárias permissões adicionais.
-
-Para usar o fallback, crie o secret `AUTO_MERGE_TOKEN` nas configurações de Actions do repositório. Nunca registre o token no código ou no histórico do Git.
+- O workflow usa exclusivamente o `github.token` temporário fornecido pelo GitHub Actions, com permissões de escrita para `contents` e `pull-requests` declaradas no próprio arquivo.
+- Não é necessário criar ou manter o secret `AUTO_MERGE_TOKEN` para esse fluxo.
 
 ## Instalação
 
