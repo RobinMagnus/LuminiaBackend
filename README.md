@@ -240,6 +240,23 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 | `PUT` | `/professores/:id` | JWT + professor próprio | Atualiza somente o próprio perfil de professor. |
 | `DELETE` | `/professores/:id` | JWT + professor próprio | Remove somente o próprio perfil de professor. |
 
+### Turmas e disciplinas
+
+As listagens são paginadas. Professores visualizam o catálogo completo; alunos visualizam somente a própria turma e as disciplinas ativas vinculadas a ela.
+
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/turmas` | JWT | Lista turmas conforme a role. |
+| `GET` | `/turmas/:id` | JWT | Consulta uma turma permitida. |
+| `POST` | `/turmas` | JWT + professor | Cria uma turma. |
+| `PUT` | `/turmas/:id` | JWT + professor responsável | Atualiza a turma própria. |
+| `DELETE` | `/turmas/:id` | JWT + professor responsável | Remove turma sem alunos ou disciplinas vinculadas. |
+| `GET` | `/disciplinas` | JWT | Lista disciplinas conforme a role. |
+| `GET` | `/disciplinas/:id` | JWT | Consulta uma disciplina permitida. |
+| `POST` | `/disciplinas` | JWT + professor | Cria uma disciplina vinculada a turmas existentes. |
+| `PUT` | `/disciplinas/:id` | JWT + professor responsável | Atualiza a disciplina própria. |
+| `DELETE` | `/disciplinas/:id` | JWT + professor responsável | Remove a disciplina própria. |
+
 ### Posts
 
 Todas as rotas de posts exigem JWT. Criação exige role `professor`; edição e remoção exigem role `professor` e autoria do post.
@@ -360,7 +377,7 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
 npm test
 ```
 
-A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 61 testes atuais cobrem autenticação, autorização, perfis, posts, comentários e os fluxos acadêmicos de atividades, entregas, correções, presença, boletim e cronograma.
+A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 75 testes atuais cobrem autenticação, autorização, perfis, posts, comentários e os fluxos acadêmicos de turmas, disciplinas, atividades, entregas, correções, presença, boletim e cronograma.
 
 O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer métrica global não supera 90%: statements, branches, functions ou lines. Na medição atual, todas estão acima do limite.
 
@@ -377,6 +394,8 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 │   ├── controllers/
 │   │   ├── alunoController.js
 │   │   ├── authController.js
+│   │   ├── academicoController.js
+│   │   ├── catalogoAcademicoController.js
 │   │   ├── comentarioController.js
 │   │   ├── postController.js
 │   │   ├── professorController.js
@@ -387,9 +406,12 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 │   │   └── validationMiddleware.js
 │   ├── models/
 │   │   ├── Aluno.js
+│   │   ├── Atividade.js
 │   │   ├── Comentario.js
+│   │   ├── Disciplina.js
 │   │   ├── Post.js
 │   │   ├── Professor.js
+│   │   ├── Turma.js
 │   │   └── User.js
 │   ├── routes/
 │   │   ├── alunoRoutes.js
@@ -397,6 +419,8 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 │   │   ├── comentarioRoutes.js
 │   │   ├── postRoutes.js
 │   │   ├── professorRoutes.js
+│   │   ├── disciplinaRoutes.js
+│   │   ├── turmaRoutes.js
 │   │   └── userRoutes.js
 │   ├── seed/
 │   │   └── seed.js
@@ -447,6 +471,7 @@ Implementado:
 - Autenticação JWT com senha criptografada por bcrypt.
 - Models de `User`, `Aluno`, `Professor` e `Post`.
 - Model de `Comentario` relacionado a `Post` e `User`.
+- Models de `Turma` e `Disciplina`, com vínculo entre disciplinas, turmas e professor responsável.
 - Seed com usuários de teste, perfis e posts.
 - Seed com comentários de aluno e professor.
 - CRUD básico para alunos, professores e posts.
@@ -464,6 +489,8 @@ Implementado:
 - Entregas únicas por aluno e atividade, com acesso restrito à turma.
 - Correções com nota e feedback vinculadas à entrega.
 - Registro de presença, boletim completo e cronograma por turma.
+- Catálogo paginado de turmas e disciplinas, com filtros, propriedade e visibilidade restrita para alunos.
+- Seed com turma `1A` e disciplinas de Matemática e Tecnologia.
 
 Ainda não implementado:
 
@@ -474,14 +501,14 @@ Ainda não implementado:
 
 - `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
 - O seed apaga dados existentes antes de recriar os dados iniciais.
-- A suíte automatizada cobre autenticação, sessão, posts e comentários, mas ainda não cobre todos os cenários do MVP.
+- A suíte automatizada cobre os recursos implementados; integrações de IA ainda dependerão de testes próprios quando forem adicionadas.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 
 ## Próximos passos
 
 1. ~~Ampliar testes automatizados para autenticação, autorização, posts e perfis.~~ Concluído.
 2. ~~Ampliar e endurecer testes dos comentários já implementados.~~ Concluído.
-3. Criar turmas e disciplinas.
+3. ~~Criar turmas e disciplinas.~~ Concluído.
 4. ~~Criar atividades e entregas.~~ Concluído.
 5. ~~Criar correções, presença e boletim.~~ Concluído.
 6. Integrar IA por último, após consolidar os fluxos principais.

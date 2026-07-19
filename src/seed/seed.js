@@ -12,6 +12,8 @@ const Entrega = require('../models/Entrega');
 const Correcao = require('../models/Correcao');
 const Presenca = require('../models/Presenca');
 const EventoCronograma = require('../models/EventoCronograma');
+const Turma = require('../models/Turma');
+const Disciplina = require('../models/Disciplina');
 
 async function seed() {
   try {
@@ -21,6 +23,8 @@ async function seed() {
       Correcao.deleteMany({}),
       Entrega.deleteMany({}),
       Atividade.deleteMany({}),
+      Disciplina.deleteMany({}),
+      Turma.deleteMany({}),
       Presenca.deleteMany({}),
       EventoCronograma.deleteMany({}),
       Comentario.deleteMany({}),
@@ -43,6 +47,34 @@ async function seed() {
       senha: '123456',
       role: 'aluno'
     });
+
+    const turma = await Turma.create({
+      codigo: '1A',
+      nome: 'Turma 1A',
+      anoLetivo: 2027,
+      turno: 'manha',
+      descricao: 'Turma inicial do ensino fundamental.',
+      professorId: professorUser._id
+    });
+
+    await Disciplina.create([
+      {
+        codigo: 'MAT',
+        nome: 'Matemática',
+        descricao: 'Fundamentos de matemática e resolução de problemas.',
+        cargaHoraria: 80,
+        turmaIds: [turma._id],
+        professorId: professorUser._id
+      },
+      {
+        codigo: 'TEC',
+        nome: 'Tecnologia',
+        descricao: 'Introdução ao uso responsável de tecnologia.',
+        cargaHoraria: 40,
+        turmaIds: [turma._id],
+        professorId: professorUser._id
+      }
+    ]);
 
     await Professor.create({
       userId: professorUser._id,
