@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const request = require('supertest');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
+jest.setTimeout(30000);
+
 process.env.JWT_SECRET = 'test_secret';
 process.env.JWT_EXPIRES_IN = '1d';
 
@@ -85,7 +87,8 @@ async function prepararDados() {
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create({
     instance: {
-      ip: '127.0.0.1'
+      ip: '127.0.0.1',
+      launchTimeout: 30000
     }
   });
   await mongoose.connect(mongoServer.getUri());

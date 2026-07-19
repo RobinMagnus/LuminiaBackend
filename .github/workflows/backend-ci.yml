@@ -11,7 +11,52 @@ on:
       - develop
 
 jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate JavaScript syntax
+        run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run automated tests
+        env:
+          JWT_SECRET: github_actions_test_secret
+          JWT_EXPIRES_IN: 1d
+          NODE_ENV: test
+        run: npm test
+
   api:
+    name: api
     runs-on: ubuntu-latest
 
     services:
