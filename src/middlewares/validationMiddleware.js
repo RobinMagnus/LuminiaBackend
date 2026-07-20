@@ -151,12 +151,20 @@ function paginacao(query, erros, ordenarPermitidos, ordenarPadrao = 'createdAt')
   };
 }
 
-const validarRegistro = validarBody((body, erros) => ({
-  nome: texto(body.nome, 'nome', erros, { obrigatorio: true, min: 2, max: 120 }),
-  email: texto(body.email, 'email', erros, { obrigatorio: true, min: 5, max: 254 })?.toLowerCase(),
-  senha: texto(body.senha, 'senha', erros, { obrigatorio: true, min: 6, max: 128 }),
-  role: enumeracao(body.role, 'role', ROLES, erros, true)
-}));
+const validarRegistro = validarBody((body, erros) => {
+  const role = enumeracao(body.role, 'role', ROLES, erros, true);
+  return {
+    nome: texto(body.nome, 'nome', erros, { obrigatorio: true, min: 2, max: 120 }),
+    email: texto(body.email, 'email', erros, { obrigatorio: true, min: 5, max: 254 })?.toLowerCase(),
+    senha: texto(body.senha, 'senha', erros, { obrigatorio: true, min: 6, max: 128 }),
+    role,
+    dataNascimento: data(body.dataNascimento, 'dataNascimento', erros),
+    matricula: role === 'aluno' ? texto(body.matricula, 'matricula', erros, { max: 80 }) : undefined,
+    turma: role === 'aluno' ? texto(body.turma, 'turma', erros, { max: 80 }) : undefined,
+    materias: role === 'professor' ? listaTextos(body.materias, 'materias', erros) : undefined,
+    turmas: role === 'professor' ? listaTextos(body.turmas, 'turmas', erros) : undefined
+  };
+});
 
 const validarLogin = validarBody((body, erros) => ({
   email: texto(body.email, 'email', erros, { obrigatorio: true, min: 5, max: 254 })?.toLowerCase(),

@@ -50,7 +50,8 @@ Scripts reais definidos no `package.json`:
 | --- | --- |
 | `npm start` | Inicia a API com `node src/server.js`. |
 | `npm run dev` | Inicia a API com `nodemon src/server.js`. |
-| `npm run seed` | Limpa e recria dados iniciais no MongoDB. |
+| `npm run seed` | Sincroniza os dados iniciais sem apagar outros registros. |
+| `npm run seed:reset` | Apaga todas as coleções da aplicação e recria os dados iniciais. |
 | `npm test` | Executa testes com cobertura e exige mais de 90% em todas as métricas globais. |
 
 ## 4 FLUXO DE DESENVOLVIMENTO
@@ -191,7 +192,15 @@ Com o MongoDB ativo e o `.env` configurado:
 npm run seed
 ```
 
-O seed apaga dados existentes de `Post`, `Aluno`, `Professor` e `User`, e recria dados mínimos para teste.
+O comando padrão é incremental e idempotente: cria ou atualiza as fixtures identificadas por chaves estáveis, não duplica registros em execuções repetidas e preserva os demais dados do banco.
+
+Para limpar todas as coleções e recriar somente os dados iniciais, use deliberadamente:
+
+```bash
+npm run seed:reset
+```
+
+> Atenção: `seed:reset` é destrutivo e deve ser usado somente em ambientes locais ou bancos descartáveis.
 
 Usuários criados:
 
@@ -233,7 +242,7 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 
 | Método | Rota | Proteção | Descrição |
 | --- | --- | --- | --- |
-| `POST` | `/auth/register` | Pública | Cria usuário com role `aluno` ou `professor`. |
+| `POST` | `/auth/register` | Pública | Cria o usuário e o perfil correspondente à role na mesma operação lógica. |
 | `POST` | `/auth/login` | Pública | Autentica usuário e retorna JWT. |
 | `GET` | `/auth/me` | JWT | Retorna dados básicos do usuário autenticado. |
 
@@ -403,7 +412,7 @@ curl -X POST http://localhost:3000/posts/POST_ID/comentarios \
 npm test
 ```
 
-A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 75 testes atuais cobrem autenticação, autorização, perfis, posts, comentários e os fluxos acadêmicos de turmas, disciplinas, atividades, entregas, correções, presença, boletim e cronograma.
+A suíte usa Jest, Supertest e MongoDB Memory Server, sem depender do banco real. Os 79 testes atuais cobrem autenticação, criação integrada de perfis, seed incremental e reset explícito, autorização, posts, comentários e os fluxos acadêmicos de turmas, disciplinas, atividades, entregas, correções, presença, boletim e cronograma.
 
 O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer métrica global não supera 90%: statements, branches, functions ou lines. Na medição atual, todas estão acima do limite.
 
@@ -501,15 +510,15 @@ Os estados utilizados neste mapeamento são:
 | Área | Estado | Evidência e escopo atual |
 | --- | --- | --- |
 | API Express e persistência MongoDB | Implantado | Organização em rotas, controladores, modelos e middlewares, com conexão por Mongoose. |
-| Autenticação e autorização | Implantado | Registro, login, restauração de sessão, JWT, bcrypt, roles e regras de propriedade. |
-| Perfis de alunos e professores | Implantado | Consulta e manutenção de perfis conforme a role autenticada. |
+| Autenticação e autorização | Implantado | Registro integrado ao perfil, login, restauração de sessão, JWT, bcrypt, roles e regras de propriedade. |
+| Perfis de alunos e professores | Implantado | Criação junto ao usuário, consulta e manutenção conforme a role autenticada. |
 | Publicações e comentários | Implantado | CRUD, visibilidade, autoria, comentários e exclusões relacionadas. |
 | Paginação, filtros e validação | Implantado | Queries paginadas, filtros combináveis e erros estruturados por campo. |
 | Turmas e disciplinas | Implantado | Catálogo, filtros, vínculos, propriedade, visibilidade do aluno e proteção de exclusão. |
 | Atividades, entregas e correções | Implantado | Atividades por turma, entrega única, nota, feedback e autorização por autoria. |
 | Presença, boletim e cronograma | Implantado | Registro e consulta conforme aluno, professor, turma e disciplina. |
-| Seed de desenvolvimento | Implantado | Usuários, perfis, publicações, comentários, turma, disciplinas e registros acadêmicos. |
-| Testes e cobertura | Implantado | 75 testes e limite global superior a 90% para statements, branches, functions e lines. |
+| Seed de desenvolvimento | Implantado | Sincronização incremental e idempotente por padrão; limpeza disponível apenas por `seed:reset` explícito. |
+| Testes e cobertura | Implantado | 79 testes e limite global superior a 90% para statements, branches, functions e lines. |
 | Integração acadêmica com o frontend | Parcialmente implantado | Os endpoints existem, porém as telas acadêmicas do frontend ainda utilizam dados simulados. |
 | Normalização de turma e disciplina | Parcialmente implantado | `Disciplina` referencia `Turma`; modelos anteriores ainda mantêm alguns campos de turma e disciplina como texto para compatibilidade. |
 | Automação de integração contínua | Parcialmente implantado | O workflow está configurado, mas auto-merge, proteções de branch e `AUTO_MERGE_TOKEN` dependem das configurações do GitHub. |
@@ -517,8 +526,8 @@ Os estados utilizados neste mapeamento são:
 
 ## 13 LIMITAÇÕES CONHECIDAS
 
-- `POST /auth/register` cria apenas o usuário; perfis de aluno/professor são criados em rotas separadas ou pelo seed.
-- O seed apaga dados existentes antes de recriar os dados iniciais.
+- O cadastro integrado utiliza compensação: se o perfil não puder ser criado, o usuário recém-criado é removido. Transações MongoDB completas exigiriam um replica set.
+- `npm run seed:reset` continua sendo uma operação destrutiva por definição e deve ser restrita a bancos locais ou descartáveis.
 - A suíte automatizada cobre os principais fluxos, validações e regras de autorização dos recursos implementados, mantendo todas as métricas globais acima de 90%; integrações de IA ainda dependerão de testes próprios quando forem adicionadas.
 - Recursos relacionados a IA ainda não existem no backend; qualquer menção a IA no produto atual é estrutural ou simulada no frontend.
 

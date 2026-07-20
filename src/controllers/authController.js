@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Aluno = require('../models/Aluno');
+const Professor = require('../models/Professor');
 
 function gerarToken(user) {
   return jwt.sign(
@@ -23,8 +25,10 @@ function dadosBasicos(user) {
 }
 
 async function register(req, res) {
+  let user;
+  let perfil;
   try {
-    const { nome, email, senha, role } = req.validatedBody;
+    const { nome, email, senha, role, ...dadosPerfil } = req.validatedBody;
 
     const userExists = await User.findOne({ email });
 
@@ -32,15 +36,34 @@ async function register(req, res) {
       return res.status(409).json({ mensagem: 'Email já cadastrado.' });
     }
 
-    const user = await User.create({ nome, email, senha, role });
+    user = await User.create({ nome, email, senha, role });
+    perfil = role === 'aluno'
+      ? await Aluno.create({
+        userId: user._id,
+        nome,
+        matricula: dadosPerfil.matricula || `ALU-${user._id.toString().toUpperCase()}`,
+        turma: dadosPerfil.turma,
+        dataNascimento: dadosPerfil.dataNascimento
+      })
+      : await Professor.create({
+        userId: user._id,
+        nome,
+        dataNascimento: dadosPerfil.dataNascimento,
+        materias: dadosPerfil.materias || [],
+        turmas: dadosPerfil.turmas || []
+      });
     const token = gerarToken(user);
 
     return res.status(201).json({
-      mensagem: 'Usuário cadastrado com sucesso.',
+      mensagem: 'Usuário e perfil cadastrados com sucesso.',
       token,
-      user: dadosBasicos(user)
+      user: dadosBasicos(user),
+      perfil
     });
   } catch (error) {
+    if (perfil?._id) await perfil.deleteOne();
+    if (user?._id) await User.findByIdAndDelete(user._id);
+    if (error?.code === 11000) return res.status(409).json({ mensagem: 'Dados de usuário ou perfil já cadastrados.' });
     return res.status(500).json({ mensagem: 'Erro ao cadastrar usuário.' });
   }
 }
