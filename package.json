@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/seed/seed.js",
+    "seed:reset": "node src/seed/seed.js --reset",
     "test": "jest --runInBand --coverage"
   },
   "keywords": [
