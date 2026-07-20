@@ -32,6 +32,53 @@ Roles existentes:
 
 Não existe role `admin`.
 
+### 1.1 Cadastro integrado
+
+```http
+POST /auth/register
+```
+
+O cadastro cria o usuário e o perfil correspondente à role. Se a criação do perfil falhar, o usuário recém-criado é removido para evitar um cadastro incompleto.
+
+Campos comuns obrigatórios:
+
+```json
+{
+  "nome": "Nome do usuário",
+  "email": "usuario@luminia.com",
+  "senha": "123456",
+  "role": "aluno"
+}
+```
+
+Para `aluno`, são aceitos opcionalmente `matricula`, `turma` e `dataNascimento`. Quando `matricula` não é enviada, a API gera um identificador único com base no ID do usuário.
+
+Para `professor`, são aceitos opcionalmente `materias`, `turmas` e `dataNascimento`.
+
+Resposta `201`:
+
+```json
+{
+  "mensagem": "Usuário e perfil cadastrados com sucesso.",
+  "token": "TOKEN_JWT",
+  "user": {},
+  "perfil": {}
+}
+```
+
+Erros principais:
+
+- `400`: campos inválidos;
+- `409`: email, matrícula ou outro dado único já cadastrado;
+- `500`: falha inesperada durante o cadastro.
+
+### 1.2 Login e sessão
+
+```http
+POST /auth/login
+GET /auth/me
+```
+
 ## 2 FORMATO DE ERRO
 
 Formato padrão:

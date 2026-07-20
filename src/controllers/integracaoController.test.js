@@ -144,17 +144,20 @@ describe('integração de autenticação, perfis e posts', () => {
     expect(emailDuplicado.status).toBe(409);
   });
 
-  test('cadastro válido cria usuário, retorna token e não expõe senha', async () => {
+  test('cadastro válido cria usuário e perfil de aluno, retorna token e não expõe senha', async () => {
     const response = await request(app)
       .post('/auth/register')
       .send({
         nome: 'Nova Aluna',
         email: 'NOVA@LUMINIA.COM',
         senha: '123456',
-        role: 'aluno'
+        role: 'aluno',
+        turma: '1A',
+        dataNascimento: '2011-03-10'
       });
 
     const userCriado = await User.findOne({ email: 'nova@luminia.com' }).select('+senha');
+    const perfilCriado = await Aluno.findOne({ userId: userCriado._id });
 
     expect(response.status).toBe(201);
     expect(response.body.token).toEqual(expect.any(String));
@@ -166,6 +169,33 @@ describe('integração de autenticação, perfis e posts', () => {
     });
     expect(response.body.user.senha).toBeUndefined();
     expect(userCriado.senha).not.toBe('123456');
+    expect(perfilCriado).toMatchObject({ nome: 'Nova Aluna', turma: '1A' });
+    expect(perfilCriado.matricula).toBe(`ALU-${userCriado._id.toString().toUpperCase()}`);
+    expect(response.body.perfil._id).toBe(perfilCriado._id.toString());
+  });
+
+  test('cadastro de professor cria perfil com matérias e turmas', async () => {
+    const response = await request(app).post('/auth/register').send({
+      nome: 'Nova Professora', email: 'nova.professora@luminia.com', senha: '123456',
+      role: 'professor', materias: ['Ciências'], turmas: ['3A']
+    });
+    const userCriado = await User.findOne({ email: 'nova.professora@luminia.com' });
+    const perfilCriado = await Professor.findOne({ userId: userCriado._id });
+
+    expect(response.status).toBe(201);
+    expect(perfilCriado.materias).toEqual(['Ciências']);
+    expect(perfilCriado.turmas).toEqual(['3A']);
+  });
+
+  test('falha ao criar perfil desfaz o usuário recém-criado', async () => {
+    const response = await request(app).post('/auth/register').send({
+      nome: 'Matrícula repetida', email: 'rollback@luminia.com', senha: '123456',
+      role: 'aluno', matricula: 'ALU-TESTE'
+    });
+
+    expect(response.status).toBe(409);
+    expect(await User.findOne({ email: 'rollback@luminia.com' })).toBeNull();
+    expect(await Aluno.countDocuments({ matricula: 'ALU-TESTE' })).toBe(1);
   });
 
   test('login válido retorna token, usuário e não retorna senha', async () => {
