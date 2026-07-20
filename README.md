@@ -283,6 +283,7 @@ As listagens são paginadas. Professores visualizam o catálogo completo; alunos
 | --- | --- | --- | --- |
 | `GET` | `/turmas` | JWT | Lista turmas conforme a role. |
 | `GET` | `/turmas/:id` | JWT | Consulta uma turma permitida. |
+| `GET` | `/turmas/:id/alunos` | JWT + professor responsável | Lista os alunos vinculados à turma, com busca, ordenação e paginação. |
 | `POST` | `/turmas` | JWT + professor | Cria uma turma. |
 | `PUT` | `/turmas/:id` | JWT + professor responsável | Atualiza a turma própria. |
 | `DELETE` | `/turmas/:id` | JWT + professor responsável | Remove turma sem alunos ou disciplinas vinculadas. |
