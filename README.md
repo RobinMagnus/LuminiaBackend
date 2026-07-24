@@ -46,13 +46,13 @@ Este documento registra os requisitos de execução, a organização técnica, o
 
 Scripts reais definidos no `package.json`:
 
-| Comando | Descrição |
-| --- | --- |
-| `npm start` | Inicia a API com `node src/server.js`. |
-| `npm run dev` | Inicia a API com `nodemon src/server.js`. |
-| `npm run seed` | Sincroniza os dados iniciais sem apagar outros registros. |
-| `npm run seed:reset` | Apaga todas as coleções da aplicação e recria os dados iniciais. |
-| `npm test` | Executa testes com cobertura e exige mais de 90% em todas as métricas globais. |
+| Comando              | Descrição                                                                      |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `npm start`          | Inicia a API com `node src/server.js`.                                         |
+| `npm run dev`        | Inicia a API com `nodemon src/server.js`.                                      |
+| `npm run seed`       | Sincroniza os dados iniciais sem apagar outros registros.                      |
+| `npm run seed:reset` | Apaga todas as coleções da aplicação e recria os dados iniciais.               |
+| `npm test`           | Executa testes com cobertura e exige mais de 90% em todas as métricas globais. |
 
 ## 4 FLUXO DE DESENVOLVIMENTO
 
@@ -105,7 +105,8 @@ Variáveis documentadas em `.env.example`:
 
 ```env
 PORT=3000
-MONGO_URI=mongodb://luminia:luminia123@localhost:27017/luminia_db?authSource=admin
+MONGO_PORT=27018
+MONGO_URI=mongodb://luminia:luminia123@localhost:27018/luminia_db?authSource=admin
 JWT_SECRET=troque_este_segredo
 JWT_EXPIRES_IN=1d
 FRONTEND_URL=http://localhost:5173
@@ -135,13 +136,13 @@ docker compose up -d
 Configuração atual do container:
 
 - Container: `luminia-mongo`
-- Porta: `27017`
+- Porta host padrão: `27018` (container interno `27017`)
 - Usuário padrão: `luminia`
 - Senha padrão: `luminia123`
 - Banco inicial: `luminia_db`
 - Volume persistente: `luminia_mongo_data`
 
-As credenciais podem ser sobrescritas pelas variáveis `MONGO_ROOT_USERNAME`, `MONGO_ROOT_PASSWORD` e `MONGO_DATABASE`.
+As credenciais podem ser sobrescritas pelas variáveis `MONGO_ROOT_USERNAME`, `MONGO_ROOT_PASSWORD` e `MONGO_DATABASE`. A porta host pode ser alterada por `MONGO_PORT`.
 
 Para verificar se o container está ativo:
 
@@ -204,10 +205,10 @@ npm run seed:reset
 
 Usuários criados:
 
-| Perfil | Email | Senha |
-| --- | --- | --- |
+| Perfil    | Email                   | Senha    |
+| --------- | ----------------------- | -------- |
 | Professor | `professor@luminia.com` | `123456` |
-| Aluno | `aluno@luminia.com` | `123456` |
+| Aluno     | `aluno@luminia.com`     | `123456` |
 
 O seed também cria:
 
@@ -234,46 +235,46 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 
 #### 7.2.1 Geral
 
-| Método | Rota | Proteção | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/` | Pública | Verifica se a API está ativa. |
+| Método | Rota | Proteção | Descrição                     |
+| ------ | ---- | -------- | ----------------------------- |
+| `GET`  | `/`  | Pública  | Verifica se a API está ativa. |
 
 #### 7.2.2 Autenticação
 
-| Método | Rota | Proteção | Descrição |
-| --- | --- | --- | --- |
-| `POST` | `/auth/register` | Pública | Cria o usuário e o perfil correspondente à role na mesma operação lógica. |
-| `POST` | `/auth/login` | Pública | Autentica usuário e retorna JWT. |
-| `GET` | `/auth/me` | JWT | Retorna dados básicos do usuário autenticado. |
+| Método | Rota             | Proteção | Descrição                                                                 |
+| ------ | ---------------- | -------- | ------------------------------------------------------------------------- |
+| `POST` | `/auth/register` | Pública  | Cria o usuário e o perfil correspondente à role na mesma operação lógica. |
+| `POST` | `/auth/login`    | Pública  | Autentica usuário e retorna JWT.                                          |
+| `GET`  | `/auth/me`       | JWT      | Retorna dados básicos do usuário autenticado.                             |
 
 #### 7.2.3 Usuários
 
-| Método | Rota | Proteção | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/users` | JWT | Lista usuários. |
-| `GET` | `/users/:id` | JWT | Busca usuário por ID. |
+| Método | Rota         | Proteção | Descrição             |
+| ------ | ------------ | -------- | --------------------- |
+| `GET`  | `/users`     | JWT      | Lista usuários.       |
+| `GET`  | `/users/:id` | JWT      | Busca usuário por ID. |
 
 #### 7.2.4 Alunos
 
-| Método | Rota | Proteção | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/alunos` | JWT + professor | Lista perfis de alunos. |
-| `GET` | `/alunos/me` | JWT + aluno | Retorna o perfil do aluno autenticado. |
-| `GET` | `/alunos/:id` | JWT | Professor acessa qualquer perfil; aluno acessa somente o próprio. |
-| `POST` | `/alunos` | JWT + professor | Cria perfil de aluno. |
-| `PUT` | `/alunos/:id` | JWT | Professor atualiza qualquer perfil; aluno atualiza somente `nome` e `dataNascimento` do próprio perfil. |
-| `DELETE` | `/alunos/:id` | JWT + professor | Remove perfil de aluno. |
+| Método   | Rota          | Proteção        | Descrição                                                                                               |
+| -------- | ------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/alunos`     | JWT + professor | Lista perfis de alunos.                                                                                 |
+| `GET`    | `/alunos/me`  | JWT + aluno     | Retorna o perfil do aluno autenticado.                                                                  |
+| `GET`    | `/alunos/:id` | JWT             | Professor acessa qualquer perfil; aluno acessa somente o próprio.                                       |
+| `POST`   | `/alunos`     | JWT + professor | Cria perfil de aluno.                                                                                   |
+| `PUT`    | `/alunos/:id` | JWT             | Professor atualiza qualquer perfil; aluno atualiza somente `nome` e `dataNascimento` do próprio perfil. |
+| `DELETE` | `/alunos/:id` | JWT + professor | Remove perfil de aluno.                                                                                 |
 
 #### 7.2.5 Professores
 
-| Método | Rota | Proteção | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/professores` | JWT | Lista perfis de professores. |
-| `GET` | `/professores/me` | JWT + professor | Retorna o perfil do professor autenticado. |
-| `GET` | `/professores/:id` | JWT | Busca professor por ID. |
-| `POST` | `/professores` | JWT + professor | Cria perfil de professor. |
-| `PUT` | `/professores/:id` | JWT + professor próprio | Atualiza somente o próprio perfil de professor. |
-| `DELETE` | `/professores/:id` | JWT + professor próprio | Remove somente o próprio perfil de professor. |
+| Método   | Rota               | Proteção                | Descrição                                       |
+| -------- | ------------------ | ----------------------- | ----------------------------------------------- |
+| `GET`    | `/professores`     | JWT                     | Lista perfis de professores.                    |
+| `GET`    | `/professores/me`  | JWT + professor         | Retorna o perfil do professor autenticado.      |
+| `GET`    | `/professores/:id` | JWT                     | Busca professor por ID.                         |
+| `POST`   | `/professores`     | JWT + professor         | Cria perfil de professor.                       |
+| `PUT`    | `/professores/:id` | JWT + professor próprio | Atualiza somente o próprio perfil de professor. |
+| `DELETE` | `/professores/:id` | JWT + professor próprio | Remove somente o próprio perfil de professor.   |
 
 #### 7.2.6 Turmas e disciplinas
 
@@ -283,6 +284,7 @@ As listagens são paginadas. Professores visualizam o catálogo completo; alunos
 | --- | --- | --- | --- |
 | `GET` | `/turmas` | JWT | Lista turmas conforme a role. |
 | `GET` | `/turmas/:id` | JWT | Consulta uma turma permitida. |
+| `GET` | `/turmas/:id/alunos` | JWT + professor responsável | Lista os alunos vinculados à turma, com busca, ordenação e paginação. |
 | `POST` | `/turmas` | JWT + professor | Cria uma turma. |
 | `PUT` | `/turmas/:id` | JWT + professor responsável | Atualiza a turma própria. |
 | `DELETE` | `/turmas/:id` | JWT + professor responsável | Remove turma sem alunos ou disciplinas vinculadas. |
@@ -296,12 +298,12 @@ As listagens são paginadas. Professores visualizam o catálogo completo; alunos
 
 Todas as rotas de posts exigem JWT. Criação exige role `professor`; edição e remoção exigem role `professor` e autoria do post.
 
-| Método | Rota | Proteção | Descrição |
-| --- | --- | --- | --- |
-| `GET` | `/posts` | JWT | Lista posts visíveis para a role do usuário. |
-| `GET` | `/posts/:id` | JWT | Busca post visível por ID. |
-| `POST` | `/posts` | JWT + professor | Cria post. |
-| `PUT` | `/posts/:id` | JWT + professor autor | Atualiza post próprio. |
+| Método   | Rota         | Proteção              | Descrição                                       |
+| -------- | ------------ | --------------------- | ----------------------------------------------- |
+| `GET`    | `/posts`     | JWT                   | Lista posts visíveis para a role do usuário.    |
+| `GET`    | `/posts/:id` | JWT                   | Busca post visível por ID.                      |
+| `POST`   | `/posts`     | JWT + professor       | Cria post.                                      |
+| `PUT`    | `/posts/:id` | JWT + professor autor | Atualiza post próprio.                          |
 | `DELETE` | `/posts/:id` | JWT + professor autor | Remove post próprio e comentários relacionados. |
 
 Visibilidade de posts:
@@ -314,12 +316,12 @@ Visibilidade de posts:
 
 Todas as rotas de comentários exigem JWT.
 
-| Método | Rota | Aluno | Professor |
-| --- | --- | ---: | ---: |
-| `GET` | `/posts/:postId/comentarios` | Sim | Sim |
-| `POST` | `/posts/:postId/comentarios` | Sim | Sim |
-| `PUT` | `/comentarios/:id` | Próprio | Próprio |
-| `DELETE` | `/comentarios/:id` | Próprio | Próprio ou comentários em seu post |
+| Método   | Rota                         |   Aluno |                          Professor |
+| -------- | ---------------------------- | ------: | ---------------------------------: |
+| `GET`    | `/posts/:postId/comentarios` |     Sim |                                Sim |
+| `POST`   | `/posts/:postId/comentarios` |     Sim |                                Sim |
+| `PUT`    | `/comentarios/:id`           | Próprio |                            Próprio |
+| `DELETE` | `/comentarios/:id`           | Próprio | Próprio ou comentários em seu post |
 
 Modelo público de comentário:
 
@@ -488,16 +490,16 @@ O comando `npm test` coleta a cobertura da aplicação e falha quando qualquer m
 
 ### 11.2 Matriz de autorização
 
-| Ação | Aluno | Professor |
-| --- | --- | --- |
-| Realizar login | Sim | Sim |
-| Restaurar sessão em `/auth/me` | Sim | Sim |
-| Visualizar posts | Sim | Sim |
-| Criar post | Não | Sim |
-| Editar post autorizado | Não | Sim, se for autor |
-| Excluir post autorizado | Não | Sim, se for autor |
-| Visualizar próprio perfil | Sim | Sim |
-| Comentar em post visível | Sim | Sim |
+| Ação                           | Aluno | Professor         |
+| ------------------------------ | ----- | ----------------- |
+| Realizar login                 | Sim   | Sim               |
+| Restaurar sessão em `/auth/me` | Sim   | Sim               |
+| Visualizar posts               | Sim   | Sim               |
+| Criar post                     | Não   | Sim               |
+| Editar post autorizado         | Não   | Sim, se for autor |
+| Excluir post autorizado        | Não   | Sim, se for autor |
+| Visualizar próprio perfil      | Sim   | Sim               |
+| Comentar em post visível       | Sim   | Sim               |
 
 ## 12 MAPEAMENTO DA IMPLANTAÇÃO
 
@@ -507,22 +509,22 @@ Os estados utilizados neste mapeamento são:
 - **Parcialmente implantado**: possui base funcional, mas ainda depende de integração, normalização ou configuração externa;
 - **Não implantado**: não possui implementação funcional no backend.
 
-| Área | Estado | Evidência e escopo atual |
-| --- | --- | --- |
-| API Express e persistência MongoDB | Implantado | Organização em rotas, controladores, modelos e middlewares, com conexão por Mongoose. |
-| Autenticação e autorização | Implantado | Registro integrado ao perfil, login, restauração de sessão, JWT, bcrypt, roles e regras de propriedade. |
-| Perfis de alunos e professores | Implantado | Criação junto ao usuário, consulta e manutenção conforme a role autenticada. |
-| Publicações e comentários | Implantado | CRUD, visibilidade, autoria, comentários e exclusões relacionadas. |
-| Paginação, filtros e validação | Implantado | Queries paginadas, filtros combináveis e erros estruturados por campo. |
-| Turmas e disciplinas | Implantado | Catálogo, filtros, vínculos, propriedade, visibilidade do aluno e proteção de exclusão. |
-| Atividades, entregas e correções | Implantado | Atividades por turma, entrega única, nota, feedback e autorização por autoria. |
-| Presença, boletim e cronograma | Implantado | Registro e consulta conforme aluno, professor, turma e disciplina. |
-| Seed de desenvolvimento | Implantado | Sincronização incremental e idempotente por padrão; limpeza disponível apenas por `seed:reset` explícito. |
-| Testes e cobertura | Implantado | 79 testes e limite global superior a 90% para statements, branches, functions e lines. |
-| Integração acadêmica com o frontend | Parcialmente implantado | Os endpoints existem, porém as telas acadêmicas do frontend ainda utilizam dados simulados. |
-| Normalização de turma e disciplina | Parcialmente implantado | `Disciplina` referencia `Turma`; modelos anteriores ainda mantêm alguns campos de turma e disciplina como texto para compatibilidade. |
-| Automação de integração contínua | Parcialmente implantado | O workflow está configurado, mas auto-merge, proteções de branch e `AUTO_MERGE_TOKEN` dependem das configurações do GitHub. |
-| Inteligência artificial | Não implantado | Não há provedor, geração de feedback pedagógico ou testes de integração com IA. |
+| Área                                | Estado                  | Evidência e escopo atual                                                                                                              |
+| ----------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| API Express e persistência MongoDB  | Implantado              | Organização em rotas, controladores, modelos e middlewares, com conexão por Mongoose.                                                 |
+| Autenticação e autorização          | Implantado              | Registro integrado ao perfil, login, restauração de sessão, JWT, bcrypt, roles e regras de propriedade.                               |
+| Perfis de alunos e professores      | Implantado              | Criação junto ao usuário, consulta e manutenção conforme a role autenticada.                                                          |
+| Publicações e comentários           | Implantado              | CRUD, visibilidade, autoria, comentários e exclusões relacionadas.                                                                    |
+| Paginação, filtros e validação      | Implantado              | Queries paginadas, filtros combináveis e erros estruturados por campo.                                                                |
+| Turmas e disciplinas                | Implantado              | Catálogo, filtros, vínculos, propriedade, visibilidade do aluno e proteção de exclusão.                                               |
+| Atividades, entregas e correções    | Implantado              | Atividades por turma, entrega única, nota, feedback e autorização por autoria.                                                        |
+| Presença, boletim e cronograma      | Implantado              | Registro e consulta conforme aluno, professor, turma e disciplina.                                                                    |
+| Seed de desenvolvimento             | Implantado              | Sincronização incremental e idempotente por padrão; limpeza disponível apenas por `seed:reset` explícito.                             |
+| Testes e cobertura                  | Implantado              | 79 testes e limite global superior a 90% para statements, branches, functions e lines.                                                |
+| Integração acadêmica com o frontend | Parcialmente implantado | Os endpoints existem, porém as telas acadêmicas do frontend ainda utilizam dados simulados.                                           |
+| Normalização de turma e disciplina  | Parcialmente implantado | `Disciplina` referencia `Turma`; modelos anteriores ainda mantêm alguns campos de turma e disciplina como texto para compatibilidade. |
+| Automação de integração contínua    | Parcialmente implantado | O workflow está configurado, mas auto-merge, proteções de branch e `AUTO_MERGE_TOKEN` dependem das configurações do GitHub.           |
+| Inteligência artificial             | Não implantado          | Não há provedor, geração de feedback pedagógico ou testes de integração com IA.                                                       |
 
 ## 13 LIMITAÇÕES CONHECIDAS
 
@@ -533,16 +535,16 @@ Os estados utilizados neste mapeamento são:
 
 ## 14 PLANEJAMENTO
 
-| Ordem | Atividade | Situação |
-| ---: | --- | --- |
-| 1 | Ampliar testes de autenticação, autorização, publicações e perfis | Concluída |
-| 2 | Ampliar os testes de comentários | Concluída |
-| 3 | Criar turmas e disciplinas | Concluída |
-| 4 | Criar atividades e entregas | Concluída |
-| 5 | Criar correções, presença e boletim | Concluída |
-| 6 | Integrar as telas acadêmicas do frontend aos endpoints existentes | Pendente |
-| 7 | Migrar campos textuais legados para referências normalizadas de turma e disciplina | Pendente |
-| 8 | Integrar inteligência artificial após a consolidação dos fluxos principais | Pendente |
+| Ordem | Atividade                                                                          | Situação  |
+| ----: | ---------------------------------------------------------------------------------- | --------- |
+|     1 | Ampliar testes de autenticação, autorização, publicações e perfis                  | Concluída |
+|     2 | Ampliar os testes de comentários                                                   | Concluída |
+|     3 | Criar turmas e disciplinas                                                         | Concluída |
+|     4 | Criar atividades e entregas                                                        | Concluída |
+|     5 | Criar correções, presença e boletim                                                | Concluída |
+|     6 | Integrar as telas acadêmicas do frontend aos endpoints existentes                  | Pendente  |
+|     7 | Migrar campos textuais legados para referências normalizadas de turma e disciplina | Pendente  |
+|     8 | Integrar inteligência artificial após a consolidação dos fluxos principais         | Pendente  |
 
 ## 15 REFERÊNCIAS NORMATIVAS
 

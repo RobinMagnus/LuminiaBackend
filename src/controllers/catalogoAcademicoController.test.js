@@ -89,6 +89,39 @@ describe('turmas e disciplinas', () => {
     expect(detalhe.body.professorId.email).toBe('catalogo1@luminia.com');
   });
 
+  test('professor responsável lista os alunos da turma com busca e paginação', async () => {
+    const resposta = await request(app)
+      .get(`/turmas/${turma1A._id}/alunos?busca=CAT-1&ordenarPor=matricula&ordem=asc&limite=10`)
+      .set(auth(tokens.professor));
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body.turma).toMatchObject({ codigo: '1A', nome: 'Turma 1A' });
+    expect(resposta.body.dados).toHaveLength(1);
+    expect(resposta.body.dados[0]).toMatchObject({ nome: 'Aluno 1A', matricula: 'CAT-1' });
+    expect(resposta.body.dados[0].userId.email).toBe('catalogo.aluno1@luminia.com');
+    expect(resposta.body.paginacao).toMatchObject({ total: 1, itens: 1 });
+  });
+
+  test('listagem de alunos da turma protege acesso e valida recurso', async () => {
+    const outroProfessorAcessa = await request(app)
+      .get(`/turmas/${turma1A._id}/alunos`)
+      .set(auth(tokens.outroProfessor));
+    const alunoAcessa = await request(app)
+      .get(`/turmas/${turma1A._id}/alunos`)
+      .set(auth(tokens.aluno));
+    const inexistente = await request(app)
+      .get(`/turmas/${new mongoose.Types.ObjectId()}/alunos`)
+      .set(auth(tokens.professor));
+    const invalida = await request(app)
+      .get('/turmas/id-invalido/alunos')
+      .set(auth(tokens.professor));
+
+    expect(outroProfessorAcessa.status).toBe(403);
+    expect(alunoAcessa.status).toBe(403);
+    expect(inexistente.status).toBe(404);
+    expect(invalida.status).toBe(400);
+  });
+
   test('aluno visualiza somente a própria turma por código ou nome', async () => {
     const minha = await request(app).get('/turmas?busca=2B').set(auth(tokens.aluno));
     const detalhe = await request(app).get(`/turmas/${turma1A._id}`).set(auth(tokens.aluno));
