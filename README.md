@@ -280,18 +280,19 @@ O token inclui o `id` do usuário e a `role` (`professor` ou `aluno`). O tempo d
 
 As listagens são paginadas. Professores visualizam o catálogo completo; alunos visualizam somente a própria turma e as disciplinas ativas vinculadas a ela.
 
-| Método   | Rota               | Proteção                    | Descrição                                          |
-| -------- | ------------------ | --------------------------- | -------------------------------------------------- |
-| `GET`    | `/turmas`          | JWT                         | Lista turmas conforme a role.                      |
-| `GET`    | `/turmas/:id`      | JWT                         | Consulta uma turma permitida.                      |
-| `POST`   | `/turmas`          | JWT + professor             | Cria uma turma.                                    |
-| `PUT`    | `/turmas/:id`      | JWT + professor responsável | Atualiza a turma própria.                          |
-| `DELETE` | `/turmas/:id`      | JWT + professor responsável | Remove turma sem alunos ou disciplinas vinculadas. |
-| `GET`    | `/disciplinas`     | JWT                         | Lista disciplinas conforme a role.                 |
-| `GET`    | `/disciplinas/:id` | JWT                         | Consulta uma disciplina permitida.                 |
-| `POST`   | `/disciplinas`     | JWT + professor             | Cria uma disciplina vinculada a turmas existentes. |
-| `PUT`    | `/disciplinas/:id` | JWT + professor responsável | Atualiza a disciplina própria.                     |
-| `DELETE` | `/disciplinas/:id` | JWT + professor responsável | Remove a disciplina própria.                       |
+| Método | Rota | Proteção | Descrição |
+| --- | --- | --- | --- |
+| `GET` | `/turmas` | JWT | Lista turmas conforme a role. |
+| `GET` | `/turmas/:id` | JWT | Consulta uma turma permitida. |
+| `GET` | `/turmas/:id/alunos` | JWT + professor responsável | Lista os alunos vinculados à turma, com busca, ordenação e paginação. |
+| `POST` | `/turmas` | JWT + professor | Cria uma turma. |
+| `PUT` | `/turmas/:id` | JWT + professor responsável | Atualiza a turma própria. |
+| `DELETE` | `/turmas/:id` | JWT + professor responsável | Remove turma sem alunos ou disciplinas vinculadas. |
+| `GET` | `/disciplinas` | JWT | Lista disciplinas conforme a role. |
+| `GET` | `/disciplinas/:id` | JWT | Consulta uma disciplina permitida. |
+| `POST` | `/disciplinas` | JWT + professor | Cria uma disciplina vinculada a turmas existentes. |
+| `PUT` | `/disciplinas/:id` | JWT + professor responsável | Atualiza a disciplina própria. |
+| `DELETE` | `/disciplinas/:id` | JWT + professor responsável | Remove a disciplina própria. |
 
 #### 7.2.7 Publicações
 

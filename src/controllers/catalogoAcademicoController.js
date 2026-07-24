@@ -70,6 +70,39 @@ async function buscarTurma(req, res) {
   }
 }
 
+async function listarAlunosDaTurma(req, res) {
+  try {
+    const turma = await Turma.findById(req.params.id);
+    if (!turma) return res.status(404).json({ mensagem: 'Turma não encontrada.' });
+    if (!mesmoId(turma.professorId, req.user._id)) return res.status(403).json({ mensagem: 'Acesso não permitido.' });
+
+    const { pagina, limite, ordenarPor, ordem, busca } = req.validatedQuery;
+    const identificadores = [
+      new RegExp(`^${escaparRegex(turma.codigo)}$`, 'i'),
+      new RegExp(`^${escaparRegex(turma.nome)}$`, 'i')
+    ];
+    const filtro = { turma: { $in: identificadores } };
+    if (busca) {
+      const termo = new RegExp(escaparRegex(busca), 'i');
+      filtro.$or = [{ nome: termo }, { matricula: termo }];
+    }
+
+    const consulta = Aluno.find(filtro)
+      .populate('userId', 'nome email role ativo')
+      .sort({ [ordenarPor]: ordem === 'asc' ? 1 : -1 })
+      .skip((pagina - 1) * limite)
+      .limit(limite);
+    const [alunos, total] = await Promise.all([consulta, Aluno.countDocuments(filtro)]);
+    return res.json({
+      turma: { _id: turma._id, codigo: turma.codigo, nome: turma.nome },
+      dados: alunos,
+      paginacao: criarPaginacao({ pagina, limite, total, quantidade: alunos.length })
+    });
+  } catch (error) {
+    return res.status(400).json({ mensagem: 'ID de turma inválido.' });
+  }
+}
+
 async function criarTurma(req, res) {
   try {
     const turma = await Turma.create({ ...req.validatedBody, professorId: req.user._id });
@@ -186,6 +219,6 @@ async function atualizarDisciplina(req, res) { return alterarDisciplina(req, res
 async function removerDisciplina(req, res) { return alterarDisciplina(req, res, true); }
 
 module.exports = {
-  listarTurmas, buscarTurma, criarTurma, atualizarTurma, removerTurma,
+  listarTurmas, buscarTurma, listarAlunosDaTurma, criarTurma, atualizarTurma, removerTurma,
   listarDisciplinas, buscarDisciplina, criarDisciplina, atualizarDisciplina, removerDisciplina
 };
